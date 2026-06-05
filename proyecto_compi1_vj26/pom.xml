@@ -10,4 +10,44 @@
         <maven.compiler.release>25</maven.compiler.release>
         <exec.mainClass>com.mycompany.proyecto_compi1_vj26.Proyecto_compi1_vj26</exec.mainClass>
     </properties>
+    
+    <dependencies>
+        <!-- Dependencia en tiempo de ejecución para Java CUP -->
+        <dependency>
+            <groupId>com.github.vbmacher</groupId>
+            <artifactId>java-cup-runtime</artifactId>
+            <version>11b</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plugin de JFlex para generar el analizador léxico -->
+            <plugin>
+                <groupId>de.jflex</groupId>
+                <artifactId>jflex-maven-plugin</artifactId>
+                <version>1.9.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Plugin de CUP para generar el analizador sintáctico -->
+            <plugin>
+                <groupId>com.github.vbmacher</groupId>
+                <artifactId>cup-maven-plugin</artifactId>
+                <version>11b-20160615-3</version> <!-- Versión más reciente compatible -->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
