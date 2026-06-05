@@ -34,6 +34,9 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <outputDirectory>${project.build.directory}/generated-sources/jflex</outputDirectory>
+                </configuration>
             </plugin>
             <!-- Plugin de CUP para generar el analizador sintáctico -->
             <plugin>
@@ -47,6 +50,9 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <packageName>com.mycompany.proyecto_compi1_vj26</packageName> 
+                </configuration>
             </plugin>
         </plugins>
     </build>

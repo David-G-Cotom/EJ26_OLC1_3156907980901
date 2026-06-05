@@ -1,1 +1,135 @@
+/***************************************** PACKAGES AND IMPORTS *****************************************/
+import java_cup.runtime.*;
 
+import java.util.*;
+
+/***************************************** CUP *****************************************/
+parser code {:
+    // Utils
+    Lexer lex;
+    private ArrayList<String> syntaxErrors;
+
+    // Parser and Lexer Connection
+    public parser(Lexer lex) {
+        super(lex);
+        this.lex = lex;
+        this.syntaxErrors = new ArrayList<>();
+    }
+
+    // Getters
+    public Lexer getLexer() {
+        return this.lex;
+    }
+
+    public ArrayList<String> getSyntaxErrors() {
+        return this.syntaxErrors;
+    }
+
+    // Overwrite error methods
+    public void syntax_error(Symbol cur_token) {
+        String symbol = symbl_name_from_id(cur_token.sym);
+        String lexeme = "";
+        if (cur_token.value != null) {
+            lexeme = cur_token.value.toString();
+        }
+        Integer line = cur_token.left;
+        Integer column = cur_token.right;
+        StringBuilder description = new StringBuilder();
+
+        if (expected_token_ids().isEmpty()) {
+            description.append("No se esperaba ningun simbolo");
+        } else {
+            description.append("Se esperaba [");
+            for (Integer expected_token_id : expected_token_ids()) {
+                if (!symbl_name_from_id(expected_token_id).equals("error")) {
+                    description.append(symbl_name_from_id(expected_token_id));
+                    description.append(" ");
+                }
+            }
+            description.append("]");
+        }
+
+        this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + description.toString());
+    }
+
+    public void report_error(String message, Object info) {
+        String lexeme = "";
+        String symbol = "";
+        String  description = "";
+        Integer column = -1;
+        Integer line = -1;
+        try {
+            Symbol cur_token = (Symbol) info;
+            symbol = symbl_name_from_id(cur_token.sym);
+            line = cur_token.left;
+            column = cur_token.right;
+            if (cur_token.value != null) {
+                lexeme = cur_token.value.toString();
+            }
+            if (message != null) {
+                description = message;
+            }
+
+            this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + description);
+        } catch (Exception e) {
+            this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + message);
+        }
+    }
+
+    public void unrecovered_syntax_error(Symbol cur_token) {
+        this.syntaxErrors.add(cur_token.left + "->" + cur_token.right + "->" + "Sintactico" + "->" + "Error de sintaxis severo detectado, revise bien el codigo.");
+    }
+:}
+
+/***************************************** DECLARATIONS *****************************************/
+// Tokens - Terminales
+terminal SUMA, SUMA_IMPLICITA, RESTA, RESTA_IMPLICITA, MULTIPLICACION, DIVISION, MODULO;
+terminal PARENTESIS_ABIERTO, PARENTESIS_CERRADO, CORCHETE_ABIERTO, CORCHETE_CERRADO, LLAVE_ABIERTO, LLAVE_CERRADO;
+terminal IGUALDAD, NO_IGUAL, MAYOR, MENOR, MAYOR_IGUAL, MENOR_IGUAL;
+terminal AND, OR, NOT;
+terminal IGUAL, IGUAL_IMPLICITO, DOS_PUNTOS, COMA, PUNTO_COMA, INCREMENTO, DECREMENTO;
+terminal INT, FLOAT, STRING, BOOL, RUNE, STRUCT, NIL;
+terminal FUNC, VAR, RETURN;
+terminal IF, ELSE, SWITCH, CASE, DEFAULT, FOR, RANGE, BREAK, CONTINUE;
+terminal SLICES_INDEX, STRINGS_JOIN, LEN, APPEND, FMT_PRINTLN, STRCONV_ATOI, STRCONV_PARSE_FLOAT, REFLECT_TYPE_OF;
+terminal SIMPLE_COMMENT, MULTIPLE_COMMENT;
+terminal PUNTO, CHARACTER;
+
+terminal Double NUMERO_DECIMAL;
+terminal Integer NUMERO_ENTERO;
+terminal String ID, TEXTO;
+
+// No Terminales
+non terminal contenido;
+non terminal instruccion, bloque_codigo;
+non terminal variable;
+non terminal invocacion;
+non terminal seccion;
+non terminal for;
+non terminal tipo_dato;
+non terminal asignacion, valor, tipo_valor;
+non terminal operacion_matematica;
+non terminal lista_parametros;
+non terminal LinkedHashMap<String,Object> lista_atributo;
+non terminal AbstractMap.SimpleEntry<String,Object> atributo;
+non terminal lista_elemento;
+non terminal elemento;
+non terminal texto;
+non terminal lista_opcion, lista_correcto;
+non terminal asignacion_correcto, fin_if, continuar_else, condicion_for;
+non terminal operacion_lra, operacion_and, operacion_not, operacion_relacional, tn, g, fn;
+non terminal operador_sr, operador_md, operador_pm, operador_relacional;
+
+/***************************************** PRECEDENCES *****************************************/
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+
+precedence left SUMA, RESTA;
+precedence left MULTIPLICACION, DIVISION;
+precedence left MODULO;
+
+/***************************************** GRAMMAR *****************************************/
+start with contenido;
+
+contenido ::= PUNTO;
