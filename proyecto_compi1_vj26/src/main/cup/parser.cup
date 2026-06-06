@@ -37,9 +37,9 @@ parser code {:
         StringBuilder description = new StringBuilder();
 
         if (expected_token_ids().isEmpty()) {
-            description.append("No se esperaba ningun simbolo");
+            description.append("Token inesperado: \"").append(lexeme).append("\" (").append(symbol).append(")");
         } else {
-            description.append("Se esperaba [");
+            description.append("Se encontró \"").append(lexeme).append("\", se esperaba: [");
             for (Integer expected_token_id : expected_token_ids()) {
                 if (!symbl_name_from_id(expected_token_id).equals("error")) {
                     description.append(symbl_name_from_id(expected_token_id));
@@ -77,7 +77,7 @@ parser code {:
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) {
-        this.syntaxErrors.add(cur_token.left + "->" + cur_token.right + "->" + "Sintactico" + "->" + "Error de sintaxis severo detectado, revise bien el codigo.");
+        this.syntaxErrors.add(cur_token.left + "->" + cur_token.right + "->" + "Sintactico" + "->" + "Error de sintaxis severo detectado, no se puede recuperar el analisis, revise bien el codigo.");
     }
 :}
 
@@ -89,47 +89,185 @@ terminal IGUALDAD, NO_IGUAL, MAYOR, MENOR, MAYOR_IGUAL, MENOR_IGUAL;
 terminal AND, OR, NOT;
 terminal IGUAL, IGUAL_IMPLICITO, DOS_PUNTOS, COMA, PUNTO_COMA, INCREMENTO, DECREMENTO;
 terminal INT, FLOAT, STRING, BOOL, RUNE, STRUCT, NIL;
-terminal FUNC, VAR, RETURN;
+terminal FUNC, VAR, RETURN, MAIN, INDICE, VALOR;
 terminal IF, ELSE, SWITCH, CASE, DEFAULT, FOR, RANGE, BREAK, CONTINUE;
-terminal SLICES_INDEX, STRINGS_JOIN, LEN, APPEND, FMT_PRINTLN, STRCONV_ATOI, STRCONV_PARSE_FLOAT, REFLECT_TYPE_OF;
-terminal SIMPLE_COMMENT, MULTIPLE_COMMENT;
-terminal PUNTO, CHARACTER;
+terminal SLICES_INDEX, STRINGS_JOIN, LEN, APPEND;
+terminal FMT_PRINTLN, STRCONV_ATOI, STRCONV_PARSE_FLOAT, REFLECT_TYPE_OF;
+terminal PUNTO, UMINUS;
 
+terminal Boolean TRUE, FALSE;
 terminal Double NUMERO_DECIMAL;
 terminal Integer NUMERO_ENTERO;
 terminal String ID, TEXTO;
+terminal Character CHARACTER;
 
 // No Terminales
-non terminal contenido;
-non terminal instruccion, bloque_codigo;
-non terminal variable;
-non terminal invocacion;
-non terminal seccion;
-non terminal for;
-non terminal tipo_dato;
-non terminal asignacion, valor, tipo_valor;
-non terminal operacion_matematica;
-non terminal lista_parametros;
-non terminal LinkedHashMap<String,Object> lista_atributo;
-non terminal AbstractMap.SimpleEntry<String,Object> atributo;
-non terminal lista_elemento;
-non terminal elemento;
-non terminal texto;
-non terminal lista_opcion, lista_correcto;
-non terminal asignacion_correcto, fin_if, continuar_else, condicion_for;
-non terminal operacion_lra, operacion_and, operacion_not, operacion_relacional, tn, g, fn;
-non terminal operador_sr, operador_md, operador_pm, operador_relacional;
+non terminal inicio, funcion_main, bloque_codigo, contenido, instruccion;
+non terminal variable, asignacion, inc_dec, tipo_dato, definicion;
+non terminal sentencia_if, fin_if, continuar_else, lista_else_if;
+non terminal sentencia_for, condicion_for, transferencia;
+non terminal sentencia_switch, bloque_switch, caso_switch;
+non terminal expr;
+non terminal expr_or, expr_and, expr_not, expr_rel;
+non terminal expr_add, expr_mul, expr_mod;
+non terminal expr_unary, expr_primary;
+non terminal funcion_embebida, fmt_println, strconv_atoi, strconv_parse_float, reflect_type_of;
+non terminal args_println;
+non terminal struct;
+non terminal funcion_slice, slices_index, strings_join, len, append;
 
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
 precedence left AND;
 precedence right NOT;
-
+precedence left IGUALDAD, NO_IGUAL;
+precedence left MENOR, MENOR_IGUAL, MAYOR, MAYOR_IGUAL;
 precedence left SUMA, RESTA;
 precedence left MULTIPLICACION, DIVISION;
 precedence left MODULO;
+precedence right UMINUS;
 
 /***************************************** GRAMMAR *****************************************/
-start with contenido;
+start with inicio;
 
-contenido ::= PUNTO;
+inicio ::= funcion_main;
+
+funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo;
+
+bloque_codigo ::= LLAVE_ABIERTO contenido LLAVE_CERRADO |
+                    LLAVE_ABIERTO LLAVE_CERRADO;
+
+contenido ::= contenido instruccion |
+                contenido error PUNTO_COMA |
+                instruccion;
+
+instruccion ::= variable PUNTO_COMA |
+                asignacion PUNTO_COMA |
+                funcion_embebida PUNTO_COMA |
+                bloque_codigo |
+                sentencia_if |
+                sentencia_switch |
+                sentencia_for |
+                inc_dec PUNTO_COMA |
+                transferencia |
+                struct;
+
+variable ::= VAR ID tipo_dato definicion |
+            ID IGUAL_IMPLICITO expr;
+
+tipo_dato ::= INT |
+                FLOAT |
+                STRING |
+                BOOL |
+                RUNE;
+
+definicion ::= IGUAL expr |
+                /* empty */;
+
+asignacion ::= ID SUMA_IMPLICITA expr |
+                ID RESTA_IMPLICITA expr |
+                ID IGUAL expr;
+
+inc_dec ::= ID INCREMENTO |
+            ID DECREMENTO;
+
+sentencia_if ::= IF expr bloque_codigo fin_if;
+
+fin_if ::= ELSE continuar_else |
+            /* empty */;
+
+continuar_else ::= sentencia_if |
+                    bloque_codigo;
+
+sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch LLAVE_CERRADO;
+
+bloque_switch ::= bloque_switch caso_switch |
+                    caso_switch |
+                    DEFAULT DOS_PUNTOS contenido;
+
+caso_switch ::= CASE expr DOS_PUNTOS contenido;
+
+sentencia_for ::= FOR condicion_for bloque_codigo;
+
+condicion_for ::= expr |
+                variable PUNTO_COMA expr PUNTO_COMA inc_dec |
+                INDICE COMA VALOR IGUAL_IMPLICITO RANGE ID;
+
+transferencia ::= BREAK PUNTO_COMA |
+                    CONTINUE PUNTO_COMA |
+                    RETURN PUNTO_COMA |
+                    RETURN expr PUNTO_COMA;
+
+funcion_slice ::= slices_index |
+                        strings_join |
+                        len |
+                        append;
+
+slices_index ::= SLICES_INDEX PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+
+strings_join ::= STRINGS_JOIN PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+
+len ::= LEN PARENTESIS_ABIERTO ID PARENTESIS_CERRADO;
+
+append ::= APPEND PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+
+funcion_embebida ::= fmt_println |
+                        strconv_atoi |
+                        strconv_parse_float |
+                        reflect_type_of;
+
+fmt_println ::= FMT_PRINTLN PARENTESIS_ABIERTO args_println PARENTESIS_CERRADO |
+                FMT_PRINTLN PARENTESIS_ABIERTO PARENTESIS_CERRADO;
+
+args_println ::= args_println COMA expr |
+                    expr;
+
+strconv_atoi ::= STRCONV_ATOI PARENTESIS_ABIERTO expr PARENTESIS_CERRADO;
+
+strconv_parse_float ::= STRCONV_PARSE_FLOAT PARENTESIS_ABIERTO expr PARENTESIS_CERRADO;
+
+reflect_type_of ::= REFLECT_TYPE_OF PARENTESIS_ABIERTO expr PARENTESIS_CERRADO |
+                    REFLECT_TYPE_OF PARENTESIS_ABIERTO expr PARENTESIS_CERRADO PUNTO STRING;
+
+expr ::= expr OR expr |
+            expr_and;
+
+expr_and ::= expr_and AND expr_and |
+                expr_not;
+
+expr_not ::= NOT expr_not |
+                expr_rel;
+
+expr_rel ::= expr_rel IGUALDAD expr_rel |
+                    expr_rel NO_IGUAL expr_rel |
+                    expr_rel MENOR expr_rel |
+                    expr_rel MENOR_IGUAL expr_rel |
+                    expr_rel MAYOR expr_rel |
+                    expr_rel MAYOR_IGUAL expr_rel
+                    expr_add;
+
+expr_add ::= expr_add SUMA expr_add |
+                expr_add RESTA expr_add |
+                expr_mul;
+
+expr_mul ::= expr_mul MULTIPLICACION expr_mul |
+                expr_mul DIVISION expr_mul |
+                expr_mod;
+
+expr_mod ::= expr_mod MODULO expr_mod |
+                expr_unary;
+
+expr_unary ::= RESTA expr_unary %prec UMINUS |
+                expr_primary;
+
+expr_primary ::= PARENTESIS_ABIERTO expr PARENTESIS_CERRADO |
+        NUMERO_DECIMAL |
+        NUMERO_ENTERO |
+        ID |
+        TEXTO |
+        CHARACTER |
+        TRUE |
+        FALSE |
+        NIL |
+        funcion_slice |
+        funcion_embebida;

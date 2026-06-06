@@ -16,6 +16,8 @@ import java.util.ArrayList;
     private ArrayList<String> symbols;
     private ArrayList<String> lexicalErrors;
 
+    private boolean insertSemicolon = false;
+
     private void error(String token) {
         this.lexicalErrors.add(token + " -> " + yyline + " -> " + yycolumn + " -> " + "Lexico" + " -> " + "Cadena no existente en el lenguaje");
     }
@@ -28,13 +30,39 @@ import java.util.ArrayList;
         return this.symbols;
     }
 
+    private void updateASI(int type) {
+        switch (type) {
+            case sym.ID:
+            case sym.NUMERO_ENTERO:
+            case sym.NUMERO_DECIMAL:
+            case sym.TEXTO:
+            case sym.CHARACTER:
+            case sym.TRUE:
+            case sym.FALSE:
+            case sym.RETURN:
+            case sym.BREAK:
+            case sym.CONTINUE:
+            case sym.INCREMENTO:
+            case sym.DECREMENTO:
+            case sym.PARENTESIS_CERRADO:
+            case sym.CORCHETE_CERRADO:
+            case sym.LLAVE_CERRADO:
+                this.insertSemicolon = true;
+                break;
+            default:
+                this.insertSemicolon = false;
+        }
+    }
+
     //Parser Code
     private Symbol symbol(int type) {
+        this.updateASI(type);
         this.symbols.add(yytext());
         return new Symbol(type, yyline, yycolumn);
     }
 
     private Symbol symbol(int type, Object value) {
+        this.updateASI(type);
         this.symbols.add(value.toString());
         return new Symbol(type, yyline, yycolumn, value);
     }
@@ -65,6 +93,8 @@ WholeNumber = 0|[1-9][0-9]*
 DecimalNumber = {WholeNumber}{Dot}[0-9]+
 Letter = [a-zA-Z]
 ID = _?{Letter}({Letter}|_|{WholeNumber})*
+// Rune: carácter simple o secuencia de escape entre comillas simples
+RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
 
 // STATES
 %state TEXT, SIMPLE_COMMENT, MULTIPLE_COMMENT
@@ -119,6 +149,11 @@ ID = _?{Letter}({Letter}|_|{WholeNumber})*
     "func" { return symbol(sym.FUNC); }
     "var" { return symbol(sym.VAR); }
     "return" { return symbol(sym.RETURN); }
+    "main" { return symbol(sym.MAIN); }
+    "true" { return symbol(sym.TRUE); }
+    "false" { return symbol(sym.FALSE); }
+    "indice" { return symbol(sym.INDICE); }
+    "valor" { return symbol(sym.VALOR); }
 
     "if" { return symbol(sym.IF); }
     "else" { return symbol(sym.ELSE); }
@@ -134,9 +169,10 @@ ID = _?{Letter}({Letter}|_|{WholeNumber})*
     "strings.Join" { return symbol(sym.STRINGS_JOIN); }
     "len" { return symbol(sym.LEN); }
     "append" { return symbol(sym.APPEND); }
+
     "fmt.Println" { return symbol(sym.FMT_PRINTLN); }
     "strconv.Atoi" { return symbol(sym.STRCONV_ATOI); }
-    "strconv.ParserFloat" { return symbol(sym.STRCONV_PARSE_FLOAT); }
+    "strconv.ParseFloat" { return symbol(sym.STRCONV_PARSE_FLOAT); }
     "reflect.TypeOf" { return symbol(sym.REFLECT_TYPE_OF); }
 
     "//" { this.string.setLength(0); yybegin(SIMPLE_COMMENT); }
@@ -144,18 +180,49 @@ ID = _?{Letter}({Letter}|_|{WholeNumber})*
 
     \" { this.string.setLength(0); yybegin(TEXT); }
 
-    {WholeNumber}   { return symbol(sym.NUMERO_ENTERO, Integer.parseInt(yytext())); }
     {DecimalNumber} { return symbol(sym.NUMERO_DECIMAL, Double.parseDouble(yytext())); }
+    {WholeNumber}   { return symbol(sym.NUMERO_ENTERO, Integer.parseInt(yytext())); }
     {ID}            { return symbol(sym.ID, yytext()); }
     {Dot}           { return symbol(sym.PUNTO); }
-    "'"{InputCharacter}"'"           { return symbol(sym.CHARACTER, yytext()); }
+    {RuneLiteral} {
+        String raw = yytext();
+        char ch;
+        if (raw.length() == 3) {
+            ch = raw.charAt(1); // Carácter simple: 'A'
+        } else {
+            // Secuencia de escape: '\n', '\t', etc.
+            ch = switch (raw.charAt(2)) {
+                case 'n'  -> '\n';
+                case 'r'  -> '\r';
+                case 't'  -> '\t';
+                case '\\' -> '\\';
+                case '\'' -> '\'';
+                case '"'  -> '"';
+                default   -> raw.charAt(2);
+            };
+        }
+        return symbol(sym.CHARACTER, ch);
+    }
 }
 
 // Comments states
 <SIMPLE_COMMENT> {
     {InputCharacter}+ { this.string.append(yytext()); }
-    {LineTerminator} { yybegin(YYINITIAL); }
-    <<EOF>> { yybegin(YYINITIAL); }
+    {LineTerminator} {
+        yybegin(YYINITIAL);
+        if (this.insertSemicolon) {
+            this.insertSemicolon = false;
+            return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
+        }
+    }
+    <<EOF>> {
+        yybegin(YYINITIAL);
+        if (this.insertSemicolon) {
+            this.insertSemicolon = false;
+            return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
+        }
+        return symbol(sym.EOF);
+    }
 }
 <MULTIPLE_COMMENT> {
     "*/" {
@@ -164,15 +231,19 @@ ID = _?{Letter}({Letter}|_|{WholeNumber})*
     }
     {InputCharacter} { this.string.append(yytext()); }
     {LineTerminator} { /* Ignore */ }
+    <<EOF>> {
+        this.lexicalErrors.add(yyline + " -> " + yycolumn + " -> " + "Lexico" + " -> " + "Comentario multilinea no cerrado (falta */)");
+        return symbol(sym.EOF);
+    }
 }
 
 // Text state
 <TEXT> {
-    "\\\""  { this.string.append("\""); }
-    "\\\\"  { this.string.append("\\"); }
-    "\\n"  { this.string.append("\n"); }
-    "\\r"  { this.string.append("\r"); }
-    "\\t"  { this.string.append("\t"); }
+    "\\\""  { this.string.append('"'); }
+    "\\\\"  { this.string.append('\\'); }
+    "\\n"  { this.string.append('\n'); }
+    "\\r"  { this.string.append('\r'); }
+    "\\t"  { this.string.append('\t'); }
     \" {
         System.out.println("TEXTO: " + this.string.toString().trim());
         yybegin(YYINITIAL);
@@ -183,8 +254,21 @@ ID = _?{Letter}({Letter}|_|{WholeNumber})*
 }
 
 /* Ignored whitespace */
-{WhiteSpace} | {LineTerminator} { /* Ignore */ }
+{WhiteSpace} { /* Ignore */ }
+
+{LineTerminator} { 
+    if (this.insertSemicolon) {
+        this.insertSemicolon = false;
+        return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
+    }
+}
 
 /* Error handling */
 . { error(yytext()); }
-<<EOF>> { return symbol(sym.EOF); }
+<<EOF>> {
+    if (this.insertSemicolon) {
+        this.insertSemicolon = false;
+        return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
+    }
+    return symbol(sym.EOF);
+}
