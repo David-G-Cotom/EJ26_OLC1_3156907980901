@@ -15,6 +15,7 @@ public enum ValType {
     STRING,
     BOOLEAN,
     CHARACTER,
-    NULL;
+    NULL,
+    REFERENCE;
     
 }
