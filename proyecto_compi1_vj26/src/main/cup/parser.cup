@@ -3,11 +3,15 @@ import java_cup.runtime.*;
 
 import java.util.*;
 
+import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
+import com.mycompany.proyecto_compi1_vj26.models.ErrorType;
+
 /***************************************** CUP *****************************************/
 parser code {:
     // Utils
     Lexer lex;
-    private ArrayList<String> syntaxErrors;
+    private ArrayList<ErrorReport> syntaxErrors;
+    private int errorCounter = 0;
 
     // Parser and Lexer Connection
     public parser(Lexer lex) {
@@ -21,7 +25,7 @@ parser code {:
         return this.lex;
     }
 
-    public ArrayList<String> getSyntaxErrors() {
+    public ArrayList<ErrorReport> getSyntaxErrors() {
         return this.syntaxErrors;
     }
 
@@ -49,35 +53,43 @@ parser code {:
             description.append("]");
         }
 
-        this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + description.toString());
+        this.errorCounter++;
+        this.syntaxErrors.add(new ErrorReport(
+            this.errorCounter,
+            description.toString(),
+            line, column,
+            ErrorType.SINTACTICO
+        ));
     }
 
     public void report_error(String message, Object info) {
         String lexeme = "";
-        String symbol = "";
-        String  description = "";
         Integer column = -1;
         Integer line = -1;
         try {
             Symbol cur_token = (Symbol) info;
-            symbol = symbl_name_from_id(cur_token.sym);
             line = cur_token.left;
             column = cur_token.right;
             if (cur_token.value != null) {
                 lexeme = cur_token.value.toString();
             }
-            if (message != null) {
-                description = message;
-            }
-
-            this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + description);
         } catch (Exception e) {
-            this.syntaxErrors.add(lexeme + "/" + symbol + "->" + line + "->" + column + "->" + "Sintactico" + "->" + message);
         }
+        this.errorCounter++;
+        this.syntaxErrors.add(new ErrorReport(
+            this.errorCounter,
+            (message != null ? message : "Error de sintaxis") + (lexeme.isEmpty() ? "" : ": \"" + lexeme + "\""),
+            line, column, ErrorType.SINTACTICO
+        ));
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) {
-        this.syntaxErrors.add(cur_token.left + "->" + cur_token.right + "->" + "Sintactico" + "->" + "Error de sintaxis severo detectado, no se puede recuperar el analisis, revise bien el codigo.");
+        this.errorCounter++;
+        this.syntaxErrors.add(new ErrorReport(
+            this.errorCounter++,
+            "Error de sintaxis severo detectado, no se pudo recuperar el analisis, revise bien el codigo",
+            cur_token.left, cur_token.right, ErrorType.SINTACTICO
+        ));
     }
 :}
 

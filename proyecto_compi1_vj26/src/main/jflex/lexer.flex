@@ -5,6 +5,10 @@ import java_cup.runtime.*;
 
 import java.util.ArrayList;
 
+import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
+import com.mycompany.proyecto_compi1_vj26.models.ErrorType;
+import com.mycompany.proyecto_compi1_vj26.models.Token;
+
 %% // ---------------------------------------- SECTION SEPARATOR ----------------------------------------
 
 // USER CODE
@@ -12,22 +16,30 @@ import java.util.ArrayList;
     // Utils
     private StringBuilder string;
 
-    // Error Handling
-    private ArrayList<String> symbols;
-    private ArrayList<String> lexicalErrors;
+    private ArrayList<Token> tokenList;
+    private int tokenCounter = 0;
+
+    private ArrayList<ErrorReport> lexicalErrors;
+    private int errorCounter = 0;
 
     private boolean insertSemicolon = false;
 
     private void error(String token) {
-        this.lexicalErrors.add(token + " -> " + yyline + " -> " + yycolumn + " -> " + "Lexico" + " -> " + "Cadena no existente en el lenguaje");
+        this.errorCounter++;
+        this.lexicalErrors.add(new ErrorReport(
+            this.errorCounter,
+            "El simbolo '" + token + "' no es aceptado en el lenguaje",
+            yyline, yycolumn,
+            ErrorType.LEXICO
+        ));
     }
 
-    public ArrayList<String> getLexicalErrors(){
+    public ArrayList<ErrorReport> getLexicalErrors(){
         return this.lexicalErrors;
     }
 
-    public ArrayList<String> getSymbols(){
-        return this.symbols;
+    public ArrayList<Token> getTokenList(){
+        return this.tokenList;
     }
 
     private void updateASI(int type) {
@@ -57,13 +69,25 @@ import java.util.ArrayList;
     //Parser Code
     private Symbol symbol(int type) {
         this.updateASI(type);
-        this.symbols.add(yytext());
+        this.tokenCounter++;
+        this.tokenList.add(new Token(
+            this.tokenCounter,
+            yytext(),
+            sym.terminalNames[type],
+            yyline, yycolumn
+        ));
         return new Symbol(type, yyline, yycolumn);
     }
 
     private Symbol symbol(int type, Object value) {
         this.updateASI(type);
-        this.symbols.add(value.toString());
+        this.tokenCounter++;
+        this.tokenList.add(new Token(
+            this.tokenCounter,
+            value.toString(),
+            sym.terminalNames[type],
+            yyline, yycolumn
+        ));
         return new Symbol(type, yyline, yycolumn, value);
     }
 %}
@@ -78,7 +102,7 @@ import java.util.ArrayList;
 %cup
 %init{
     this.string = new StringBuilder();
-    this.symbols = new ArrayList<>();
+    this.tokenList = new ArrayList<>();
     this.lexicalErrors = new ArrayList<>();
     yyline = 1;
     yycolumn = 1;
@@ -232,7 +256,13 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
     {InputCharacter} { this.string.append(yytext()); }
     {LineTerminator} { /* Ignore */ }
     <<EOF>> {
-        this.lexicalErrors.add(yyline + " -> " + yycolumn + " -> " + "Lexico" + " -> " + "Comentario multilinea no cerrado (falta */)");
+        this.errorCounter++;
+        this.lexicalErrors.add(new ErrorReport(
+            this.errorCounter,
+            "Comentario multilinea no cerrado (falta */)",
+            yyline, yycolumn,
+            ErrorType.LEXICO
+        ));
         return symbol(sym.EOF);
     }
 }
