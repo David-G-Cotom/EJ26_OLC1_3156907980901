@@ -14,7 +14,8 @@ public enum VarType {
     FLOAT("float64"),
     STRING("string"),
     BOOL("bool"),
-    RUNE("rune");
+    RUNE("rune"),
+    NIL("nil");
     
     private final String type;
 
