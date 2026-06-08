@@ -4,8 +4,6 @@
  */
 package com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value;
 
-import com.mycompany.proyecto_compi1_vj26.models.ValType;
-
 /**
  *
  * @author david
@@ -16,6 +14,6 @@ public sealed interface ValueWrapper permits IntValue, DoubleValue, StringValue,
 
     int column();
 
-    ValType getType();
+    String getType();
 
 }

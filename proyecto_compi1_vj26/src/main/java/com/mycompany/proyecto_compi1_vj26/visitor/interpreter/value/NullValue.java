@@ -4,7 +4,7 @@
  */
 package com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value;
 
-import com.mycompany.proyecto_compi1_vj26.models.ValType;
+import com.mycompany.proyecto_compi1_vj26.models.VarType;
 
 /**
  *
@@ -13,8 +13,8 @@ import com.mycompany.proyecto_compi1_vj26.models.ValType;
 public record NullValue(int line, int column) implements ValueWrapper {
 
     @Override
-    public ValType getType() {
-        return ValType.NULL;
+    public String getType() {
+        return VarType.NIL.getType();
     }
 
     @Override

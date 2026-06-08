@@ -58,6 +58,10 @@ public class VarDecl extends BaseNode {
             this.column = node.getColumn();
         }
 
+        public boolean hasInitValue() {
+            return this.initValue != null;
+        }
+
     }
 
     @Override

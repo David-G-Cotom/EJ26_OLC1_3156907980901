@@ -4,8 +4,6 @@
  */
 package com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value;
 
-import com.mycompany.proyecto_compi1_vj26.models.ValType;
-
 /**
  *
  * @author david
@@ -13,8 +11,8 @@ import com.mycompany.proyecto_compi1_vj26.models.ValType;
 public record VoidValue(int line, int column) implements ValueWrapper {
 
     @Override
-    public ValType getType() {
-        return ValType.VOID;
+    public String getType() {
+        return "Void";
     }
 
     @Override
