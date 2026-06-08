@@ -9,13 +9,14 @@ package com.mycompany.proyecto_compi1_vj26.models;
  * @author david
  */
 public enum ValType {
-    
+
     INTEGER,
     DOUBLE,
     STRING,
     BOOLEAN,
     CHARACTER,
     NULL,
-    REFERENCE;
-    
+    REFERENCE,
+    VOID;
+
 }

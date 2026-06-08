@@ -4,6 +4,7 @@
  */
 package com.mycompany.proyecto_compi1_vj26.visitor;
 
+import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.ProgramNode;
 import com.mycompany.proyecto_compi1_vj26.ast.expressions.Binary;
 import com.mycompany.proyecto_compi1_vj26.ast.expressions.FuncCall;
@@ -28,6 +29,8 @@ import com.mycompany.proyecto_compi1_vj26.ast.statements.VarDecl;
  * @author david
  */
 public interface Visitor<T> {
+    
+    T visit(ASTNode node);
 
     T visit(ProgramNode.Context ctx);
 
