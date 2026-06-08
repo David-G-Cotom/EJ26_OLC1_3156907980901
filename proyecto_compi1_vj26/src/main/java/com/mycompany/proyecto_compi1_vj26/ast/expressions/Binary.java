@@ -7,13 +7,14 @@ package com.mycompany.proyecto_compi1_vj26.ast.expressions;
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
 import com.mycompany.proyecto_compi1_vj26.models.BinaryOperator;
+import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 
 /**
  *
  * @author david
  */
 public class Binary extends BaseNode {
-    
+
     private final ASTNode left;
     private final BinaryOperator operator;
     private final ASTNode right;
@@ -36,5 +37,28 @@ public class Binary extends BaseNode {
     public ASTNode getRight() {
         return right;
     }
-    
+
+    public static class Context {
+
+        public final ASTNode left;
+        public final BinaryOperator operator;
+        public final ASTNode right;
+        public final int line;
+        public final int column;
+
+        public Context(Binary node) {
+            this.left = node.left;
+            this.operator = node.operator;
+            this.right = node.right;
+            this.line = node.getLine();
+            this.column = node.getColumn();
+        }
+
+    }
+
+    @Override
+    public <T> T accept(Visitor<T> visitor) {
+        return visitor.visit(new Context(this));
+    }
+
 }

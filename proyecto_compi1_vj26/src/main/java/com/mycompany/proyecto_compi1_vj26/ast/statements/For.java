@@ -6,13 +6,14 @@ package com.mycompany.proyecto_compi1_vj26.ast.statements;
 
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
+import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 
 /**
  *
  * @author david
  */
 public class For extends BaseNode {
-    
+
     private final ASTNode init;
     private final ASTNode condition;
     private final ASTNode increment;
@@ -41,5 +42,30 @@ public class For extends BaseNode {
     public Block getBody() {
         return body;
     }
-    
+
+    public static class Context {
+
+        public final ASTNode init;
+        public final ASTNode condition;
+        public final ASTNode increment;
+        public final Block body;
+        public final int line;
+        public final int column;
+
+        public Context(For node) {
+            this.init = node.init;
+            this.condition = node.condition;
+            this.increment = node.increment;
+            this.body = node.body;
+            this.line = node.getLine();
+            this.column = node.getColumn();
+        }
+
+    }
+
+    @Override
+    public <T> T accept(Visitor<T> visitor) {
+        return visitor.visit(new Context(this));
+    }
+
 }

@@ -7,6 +7,7 @@ package com.mycompany.proyecto_compi1_vj26.ast.statements;
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
 import com.mycompany.proyecto_compi1_vj26.models.VarType;
+import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 
 /**
  *
@@ -36,9 +37,32 @@ public class VarDecl extends BaseNode {
     public ASTNode getInitValue() {
         return initValue;
     }
-    
+
     public boolean hasInitValue() {
         return this.initValue != null;
+    }
+
+    public static class Context {
+
+        public final String name;
+        public final VarType type;
+        public final ASTNode initValue;
+        public final int line;
+        public final int column;
+
+        public Context(VarDecl node) {
+            this.name = node.name;
+            this.type = node.type;
+            this.initValue = node.initValue;
+            this.line = node.getLine();
+            this.column = node.getColumn();
+        }
+
+    }
+
+    @Override
+    public <T> T accept(Visitor<T> visitor) {
+        return visitor.visit(new Context(this));
     }
 
 }

@@ -4,13 +4,18 @@
  */
 package com.mycompany.proyecto_compi1_vj26.ast;
 
+import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
+
 /**
  *
  * @author david
  */
 public interface ASTNode {
-    
+
     int getLine();
+
     int getColumn();
-    
+
+    <T> T accept(Visitor<T> visitor);
+
 }

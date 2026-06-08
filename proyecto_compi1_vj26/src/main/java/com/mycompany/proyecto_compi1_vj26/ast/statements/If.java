@@ -6,6 +6,7 @@ package com.mycompany.proyecto_compi1_vj26.ast.statements;
 
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
+import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 import java.util.List;
 
 /**
@@ -51,6 +52,33 @@ public class If extends BaseNode {
 
     public boolean hasElse() {
         return this.elseBlock != null;
+    }
+
+    public static class Context {
+
+        public final ASTNode condition;
+        public final Block thenBlock;
+        public final List<ASTNode> elseIfConditions;
+        public final List<Block> elseIfBlocks;
+        public final Block elseBlock;
+        public final int line;
+        public final int column;
+
+        public Context(If node) {
+            this.condition = node.condition;
+            this.thenBlock = node.thenBlock;
+            this.elseIfConditions = node.elseIfConditions;
+            this.elseIfBlocks = node.elseIfBlocks;
+            this.elseBlock = node.elseBlock;
+            this.line = node.getLine();
+            this.column = node.getColumn();
+        }
+
+    }
+
+    @Override
+    public <T> T accept(Visitor<T> visitor) {
+        return visitor.visit(new Context(this));
     }
 
 }
