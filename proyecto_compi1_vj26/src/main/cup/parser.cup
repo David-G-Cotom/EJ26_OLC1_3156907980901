@@ -7,6 +7,7 @@ import com.mycompany.proyecto_compi1_vj26.models.*;
 import com.mycompany.proyecto_compi1_vj26.ast.*;
 import com.mycompany.proyecto_compi1_vj26.ast.expressions.*;
 import com.mycompany.proyecto_compi1_vj26.ast.statements.*;
+import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value.*;
 
 /***************************************** CUP *****************************************/
 parser code {:
@@ -206,8 +207,8 @@ definicion ::= IGUAL expr:e {: RESULT = e; :} |
                 /* empty */ {: RESULT = null; :};
 
 asignacion ::= ID:i SUMA_IMPLICITA expr:e {: RESULT = new Assign(i, e, ileft, iright); :} |
-                ID:i RESTA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, "+=", e, ileft, iright); :} |
-                ID:i IGUAL expr:e {: RESULT = new ImplicitAssign(i, "-=", e, ileft, iright); :};
+                ID:i RESTA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.SUMA_IMPLICITA, e, ileft, iright); :} |
+                ID:i IGUAL expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.RESTA_IMPLICITA, e, ileft, iright); :};
 
 inc_dec ::= ID:i INCREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :} |
             ID:i DECREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :};
@@ -362,13 +363,13 @@ expr_unary ::= RESTA:r expr_unary:e {: RESULT = new Unary("-", e, rleft, rright)
                 expr_primary:e {: RESULT = e; :};
 
 expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} |
-        NUMERO_DECIMAL:v {: RESULT = new Literal(v, ValType.INTEGER, vleft, vright); :} |
-        NUMERO_ENTERO:v {: RESULT = new Literal(v, ValType.DOUBLE, vleft, vright); :} |
-        ID:i {: RESULT = new Literal(i, ValType.REFERENCE, ileft, iright); :} |
-        TEXTO:v {: RESULT = new Literal(v, ValType.STRING, vleft, vright); :} |
-        CHARACTER:v {: RESULT = new Literal(v, ValType.CHARACTER, vleft, vright); :} |
-        TRUE:v {: RESULT = new Literal(true, ValType.BOOLEAN, vleft, vright); :} |
-        FALSE:v {: RESULT = new Literal(false, ValType.BOOLEAN, vleft, vright); :} |
-        NIL:v {: RESULT = new Literal(null, ValType.NULL, vleft, vright); :} |
+        NUMERO_DECIMAL:v {: RESULT = new Literal(new DoubleValue(v, vleft, vright), vleft, vright); :} |
+        NUMERO_ENTERO:v {: RESULT = new Literal(new IntValue(v, vleft, vright), vleft, vright); :} |
+        ID:i {: RESULT = new Identifier(i, ileft, iright); :} |
+        TEXTO:v {: RESULT = new Literal(new StringValue(v, vleft, vright), vleft, vright); :} |
+        CHARACTER:v {: RESULT = new Literal(new CharValue(v, vleft, vright), vleft, vright); :} |
+        TRUE:v {: RESULT = new Literal(new BoolValue(true, vleft, vright), vleft, vright); :} |
+        FALSE:v {: RESULT = new Literal(new BoolValue(false, vleft, vright), vleft, vright); :} |
+        NIL:v {: RESULT = new Literal(new NullValue(vleft, vright), vleft, vright); :} |
         funcion_slice {: RESULT = null; :} |
         funcion_embebida:f {: RESULT = f; :};

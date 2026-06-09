@@ -11,13 +11,8 @@ import com.mycompany.proyecto_compi1_vj26.ast.statements.*;
 import com.mycompany.proyecto_compi1_vj26.exceptions.BreakException;
 import com.mycompany.proyecto_compi1_vj26.exceptions.ContinueException;
 import com.mycompany.proyecto_compi1_vj26.exceptions.ReturnException;
-import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
-import com.mycompany.proyecto_compi1_vj26.models.ErrorType;
-import com.mycompany.proyecto_compi1_vj26.models.FuncName;
-import com.mycompany.proyecto_compi1_vj26.models.ValType;
-import com.mycompany.proyecto_compi1_vj26.models.VarType;
-import com.mycompany.proyecto_compi1_vj26.symbols.Symbol;
-import com.mycompany.proyecto_compi1_vj26.symbols.SymbolTable;
+import com.mycompany.proyecto_compi1_vj26.models.*;
+import com.mycompany.proyecto_compi1_vj26.symbols.*;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value.*;
 import java.util.ArrayList;
@@ -92,7 +87,63 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(Binary.Context ctx) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        BinaryOperator op = ctx.operator;
+
+        // Cortocircuito para && y ||
+        if (op == BinaryOperator.AND) {
+            ValueWrapper left = visit(ctx.left);
+            if (!(left instanceof BoolValue l)) {
+                this.addError("El operador '&&' requiere operandos bool",
+                        ctx.line, ctx.column);
+                return new NullValue(ctx.line, ctx.column);
+            }
+            if (!l.value()) {
+                return new BoolValue(false, ctx.line, ctx.column);
+            }
+            ValueWrapper right = visit(ctx.right);
+            if (!(right instanceof BoolValue r)) {
+                this.addError("El operador '&&' requiere operandos bool",
+                        ctx.line, ctx.column);
+                return new NullValue(ctx.line, ctx.column);
+            }
+            return new BoolValue(r.value(), ctx.line, ctx.column);
+        }
+
+        if (op == BinaryOperator.OR) {
+            ValueWrapper left = visit(ctx.left);
+            if (!(left instanceof BoolValue l)) {
+                addError("El operador '||' requiere operandos bool",
+                        ctx.line, ctx.column);
+                return new NullValue(ctx.line, ctx.column);
+            }
+            if (l.value()) {
+                return new BoolValue(true, ctx.line, ctx.column);
+            }
+            ValueWrapper right = visit(ctx.right);
+            if (!(right instanceof BoolValue r)) {
+                addError("El operador '||' requiere operandos bool",
+                        ctx.line, ctx.column);
+                return new NullValue(ctx.line, ctx.column);
+            }
+            return new BoolValue(r.value(), ctx.line, ctx.column);
+        }
+
+        ValueWrapper left = visit(ctx.left);
+        ValueWrapper right = visit(ctx.right);
+
+        return switch (op) {
+            case BinaryOperator.SUMA, BinaryOperator.RESTA, BinaryOperator.MULTIPLICACION, BinaryOperator.DIVISION, BinaryOperator.MODULO ->
+                this.applyArithmetic(left, op, right, ctx.line, ctx.column);
+            case BinaryOperator.IGUALDAD, BinaryOperator.NO_IGUAL ->
+                this.applyEquality(left, op, right, ctx.line, ctx.column);
+            case BinaryOperator.MENOR, BinaryOperator.MAYOR, BinaryOperator.MENOR_IGUAL, BinaryOperator.MAYOR_IGUAL ->
+                this.applyRelational(left, op, right, ctx.line, ctx.column);
+            default -> {
+                this.addError("Operador binario desconocido: \"" + op + "\"",
+                        ctx.line, ctx.column);
+                yield new NullValue(ctx.line, ctx.column);
+            }
+        };
     }
 
     @Override
@@ -190,17 +241,46 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(Identifier.Context ctx) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        Symbol sym = this.symbolTable.lookUp(ctx.name,
+                ctx.line, ctx.column);
+        return sym != null ? sym.getValue() : new NullValue(ctx.line, ctx.column);
     }
 
     @Override
     public ValueWrapper visit(Literal.Context ctx) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return ctx.value;
     }
 
     @Override
     public ValueWrapper visit(Unary.Context ctx) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        ValueWrapper val = visit(ctx.operand);
+
+        return switch (ctx.operator) {
+            case "-" -> {
+                if (val instanceof IntValue i) {
+                    yield new IntValue(-i.value(), i.line(), i.column());
+                }
+                if (val instanceof DoubleValue d) {
+                    yield new DoubleValue(-d.value(), d.line(), d.column());
+                }
+                this.addError("El operador '-' unario solo aplica a int o float64",
+                        ctx.line, ctx.column);
+                yield new NullValue(ctx.line, ctx.column);
+            }
+            case "!" -> {
+                if (val instanceof BoolValue b) {
+                    yield new BoolValue(!b.value(), b.line(), b.column());
+                }
+                this.addError("El operador '!' solo aplica a bool",
+                        ctx.line, ctx.column);
+                yield new NullValue(ctx.line, ctx.column);
+            }
+            default -> {
+                this.addError("Operador unario desconocido: \"" + ctx.operator + "\"",
+                        ctx.line, ctx.column);
+                yield new NullValue(ctx.line, ctx.column);
+            }
+        };
     }
 
     @Override
@@ -259,13 +339,12 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
             while (true) {
                 ValueWrapper cond = visit(ctx.condition);
-                if (!(cond instanceof BoolValue)) {
+                if (!(cond instanceof BoolValue c)) {
                     this.addError("La condición del 'for' debe ser de tipo bool",
                             ctx.line, ctx.column);
                     break;
                 }
-                BoolValue condition = (BoolValue) cond;
-                if (!condition.value()) {
+                if (!c.value()) {
                     break;
                 }
 
@@ -294,13 +373,12 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         try {
             while (true) {
                 ValueWrapper cond = visit(ctx.condition);
-                if (!(cond instanceof BoolValue)) {
+                if (!(cond instanceof BoolValue c)) {
                     this.addError("La condición del 'for' debe ser de tipo bool",
                             ctx.line, ctx.column);
                     break;
                 }
-                BoolValue condition = (BoolValue) cond;
-                if (!condition.value()) {
+                if (!c.value()) {
                     break;
                 }
 
@@ -332,13 +410,12 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     @Override
     public ValueWrapper visit(If.Context ctx) {
         ValueWrapper condVal = visit(ctx.condition);
-        if (!(condVal instanceof BoolValue)) {
+        if (!(condVal instanceof BoolValue c)) {
             this.addError("La condición del 'if' debe ser de tipo bool",
                     ctx.line, ctx.column);
             return this.defaultVoid;
         }
-        BoolValue condIf = (BoolValue) condVal;
-        if (condIf.value()) {
+        if (c.value()) {
             visit(ctx.thenBlock);
             return this.defaultVoid;
         }
@@ -348,12 +425,11 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         List<Block> elseIfBlocks = ctx.elseIfBlocks;
         for (int i = 0; i < elseIfConds.size(); i++) {
             ValueWrapper condition = visit(elseIfConds.get(i));
-            if (!(condition instanceof BoolValue)) {
+            if (!(condition instanceof BoolValue cond)) {
                 this.addError("La condición del 'else if' debe ser de tipo bool",
                         elseIfConds.get(i).getLine(), elseIfConds.get(i).getColumn());
                 return this.defaultVoid;
             }
-            BoolValue cond = (BoolValue) condition;
             if (cond.value()) {
                 visit(elseIfBlocks.get(i));
                 return this.defaultVoid;
@@ -374,7 +450,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return this.defaultVoid;
         }
         ValueWrapper right = visit(ctx.value);
-        ValueWrapper result = this.applyArithmetic(sym.getValue(), ctx.operator.charAt(0) + "", right, ctx.line, ctx.column);
+        ValueWrapper result = this.applyArithmetic(sym.getValue(), ctx.operator, right, ctx.line, ctx.column);
         if (result != null) {
             this.symbolTable.assign(ctx.name, result, ctx.line, ctx.column);
         }
@@ -525,13 +601,13 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         };
     }
 
-    private ValueWrapper applyArithmetic(ValueWrapper left, String op, ValueWrapper right, int line, int col) {
+    private ValueWrapper applyArithmetic(ValueWrapper left, BinaryOperator op, ValueWrapper right, int line, int col) {
         if (left instanceof NullValue || right instanceof NullValue) {
             return new NullValue(line, col);
         }
 
         // string + string -> concatenación
-        if (op.equals("+") && left instanceof StringValue l && right instanceof StringValue r) {
+        if (op == BinaryOperator.SUMA && left instanceof StringValue l && right instanceof StringValue r) {
             return new StringValue(l.value() + r.value(), line, col);
         }
 
@@ -550,22 +626,22 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             double r = toDouble(right);
 
             // División por cero
-            if ((op.equals("/") || op.equals("%")) && r == 0) {
+            if ((op == BinaryOperator.DIVISION || op == BinaryOperator.MODULO) && r == 0) {
                 this.addError("División por cero", line, col);
                 return new NullValue(line, col);
             }
 
             if (useDouble) {
                 return switch (op) {
-                    case "+" ->
+                    case BinaryOperator.SUMA ->
                         new DoubleValue(l + r, line, col);
-                    case "-" ->
+                    case BinaryOperator.RESTA ->
                         new DoubleValue(l - r, line, col);
-                    case "*" ->
+                    case BinaryOperator.MULTIPLICACION ->
                         new DoubleValue(l * r, line, col);
-                    case "/" ->
+                    case BinaryOperator.DIVISION ->
                         new DoubleValue(l / r, line, col);
-                    case "%" ->
+                    case BinaryOperator.MODULO ->
                         new DoubleValue(l % r, line, col);
                     default ->
                         new NullValue(line, col);
@@ -573,15 +649,15 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             } else {
                 int li = (int) l, ri = (int) r;
                 return switch (op) {
-                    case "+" ->
+                    case BinaryOperator.SUMA ->
                         new IntValue(li + ri, line, col);
-                    case "-" ->
+                    case BinaryOperator.RESTA ->
                         new IntValue(li - ri, line, col);
-                    case "*" ->
+                    case BinaryOperator.MULTIPLICACION ->
                         new IntValue(li * ri, line, col);
-                    case "/" ->
+                    case BinaryOperator.DIVISION ->
                         new IntValue(li / ri, line, col);
-                    case "%" ->
+                    case BinaryOperator.MODULO ->
                         new IntValue(li % ri, line, col);
                     default ->
                         new NullValue(line, col);
@@ -591,7 +667,91 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
         this.addError("Tipos incompatibles para el operador '" + op + "': "
                 + left.getType() + " y " + right.getType(), line, col);
-        return null;
+        return new NullValue(line, col);
+    }
+
+    private ValueWrapper applyEquality(ValueWrapper left, BinaryOperator op, ValueWrapper right, int line, int col) {
+        if (left instanceof NullValue && right instanceof NullValue) {
+            return new BoolValue(op == BinaryOperator.IGUALDAD, line, col);
+        }
+        if (left instanceof NullValue || right instanceof NullValue) {
+            return new BoolValue(op == BinaryOperator.NO_IGUAL, line, col);
+        }
+
+        // Normalizar rune -> int
+        if (left instanceof CharValue c) {
+            left = new IntValue((int) c.value(), c.line(), c.column());
+        }
+        if (right instanceof CharValue c) {
+            right = new IntValue((int) c.value(), c.line(), c.column());
+        }
+
+        // Comparacion numerica con promocion
+        if (this.isNumeric(left) && this.isNumeric(right)) {
+            boolean eq = this.toDouble(left) == this.toDouble(right);
+            return op == BinaryOperator.IGUALDAD ? new BoolValue(eq, line, col) : new BoolValue(!eq, line, col);
+        }
+
+        // Mismo tipo
+        if (left.getType().equals(right.getType())) {
+            boolean eq = left.equals(right);
+            return op == BinaryOperator.IGUALDAD ? new BoolValue(eq, line, col) : new BoolValue(!eq, line, col);
+        }
+
+        addError("Tipos incompatibles para '" + op + "': "
+                + left.getType() + " y " + right.getType(), line, col);
+        return new NullValue(line, col);
+    }
+
+    private ValueWrapper applyRelational(ValueWrapper left, BinaryOperator op, ValueWrapper right, int line, int col) {
+        if (left instanceof NullValue || right instanceof NullValue) {
+            addError("No se puede aplicar '" + op + "' a nil", line, col);
+            return new NullValue(line, col);
+        }
+
+        // Normalizar rune -> int
+        if (left instanceof CharValue c) {
+            left = new IntValue((int) c.value(), c.line(), c.column());
+        }
+        if (right instanceof CharValue c) {
+            right = new IntValue((int) c.value(), c.line(), c.column());
+        }
+
+        if (isNumeric(left) && isNumeric(right)) {
+            double l = toDouble(left), r = toDouble(right);
+            return switch (op) {
+                case BinaryOperator.MENOR ->
+                    new BoolValue(l < r, line, col);
+                case BinaryOperator.MAYOR ->
+                    new BoolValue(l > r, line, col);
+                case BinaryOperator.MENOR_IGUAL ->
+                    new BoolValue(l <= r, line, col);
+                case BinaryOperator.MAYOR_IGUAL ->
+                    new BoolValue(l >= r, line, col);
+                default ->
+                    new NullValue(line, col);
+            };
+        }
+
+        if (left instanceof StringValue l && right instanceof StringValue r) {
+            int cmp = l.value().compareTo(r.value());
+            return switch (op) {
+                case BinaryOperator.MENOR ->
+                    new BoolValue(cmp < 0, line, col);
+                case BinaryOperator.MAYOR ->
+                    new BoolValue(cmp > 0, line, col);
+                case BinaryOperator.MENOR_IGUAL ->
+                    new BoolValue(cmp <= 0, line, col);
+                case BinaryOperator.MAYOR_IGUAL ->
+                    new BoolValue(cmp >= 0, line, col);
+                default ->
+                    new NullValue(line, col);
+            };
+        }
+
+        this.addError("Tipos incompatibles para '" + op + "': "
+                + left.getType() + " y " + right.getType(), line, col);
+        return new NullValue(line, col);
     }
 
     private boolean isNumeric(ValueWrapper v) {

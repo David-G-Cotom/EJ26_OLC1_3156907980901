@@ -6,6 +6,7 @@ package com.mycompany.proyecto_compi1_vj26.ast.statements;
 
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
+import com.mycompany.proyecto_compi1_vj26.models.BinaryOperator;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 
 /**
@@ -15,10 +16,10 @@ import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 public class ImplicitAssign extends BaseNode {
 
     private final String name;
-    private final String operator;  // "+=" o "-="
+    private final BinaryOperator operator;  // "+=" o "-="
     private final ASTNode value;
 
-    public ImplicitAssign(String name, String operator, ASTNode value, int line, int column) {
+    public ImplicitAssign(String name, BinaryOperator operator, ASTNode value, int line, int column) {
         super(line, column);
         this.name = name;
         this.operator = operator;
@@ -29,7 +30,7 @@ public class ImplicitAssign extends BaseNode {
         return name;
     }
 
-    public String getOperator() {
+    public BinaryOperator getOperator() {
         return operator;
     }
 
@@ -40,7 +41,7 @@ public class ImplicitAssign extends BaseNode {
     public static class Context {
 
         public final String name;
-        public final String operator;
+        public final BinaryOperator operator;
         public final ASTNode value;
         public final int line;
         public final int column;

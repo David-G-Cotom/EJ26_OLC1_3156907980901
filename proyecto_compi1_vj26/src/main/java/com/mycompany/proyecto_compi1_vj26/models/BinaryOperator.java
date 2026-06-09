@@ -11,7 +11,9 @@ package com.mycompany.proyecto_compi1_vj26.models;
 public enum BinaryOperator {
     
     SUMA,
+    SUMA_IMPLICITA,
     RESTA,
+    RESTA_IMPLICITA,
     MULTIPLICACION,
     DIVISION,
     MODULO,
