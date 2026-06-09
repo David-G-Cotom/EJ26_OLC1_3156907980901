@@ -74,6 +74,10 @@ public class If extends BaseNode {
             this.column = node.getColumn();
         }
 
+        public boolean hasElse() {
+            return this.elseBlock != null;
+        }
+
     }
 
     @Override

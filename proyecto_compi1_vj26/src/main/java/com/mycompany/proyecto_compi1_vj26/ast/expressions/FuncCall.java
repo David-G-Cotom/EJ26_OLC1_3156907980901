@@ -6,6 +6,7 @@ package com.mycompany.proyecto_compi1_vj26.ast.expressions;
 
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
+import com.mycompany.proyecto_compi1_vj26.models.FuncName;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 import java.util.List;
 
@@ -15,16 +16,16 @@ import java.util.List;
  */
 public class FuncCall extends BaseNode {
 
-    private final String functionName;
+    private final FuncName functionName;
     private final List<ASTNode> args;
 
-    public FuncCall(String functionName, List<ASTNode> args, int line, int column) {
+    public FuncCall(FuncName functionName, List<ASTNode> args, int line, int column) {
         super(line, column);
         this.functionName = functionName;
         this.args = args;
     }
 
-    public String getFunctionName() {
+    public FuncName getFunctionName() {
         return functionName;
     }
 
@@ -34,7 +35,7 @@ public class FuncCall extends BaseNode {
 
     public static class Context {
 
-        public final String functionName;
+        public final FuncName functionName;
         public final List<ASTNode> args;
         public final int line;
         public final int column;

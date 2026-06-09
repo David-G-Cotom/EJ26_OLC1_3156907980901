@@ -272,11 +272,11 @@ condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
 
 transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |
                     CONTINUE:c PUNTO_COMA {: RESULT = new Continue(cleft, cright); :} |
-                    RETURN:r PUNTO_COMA {: RESULT = new FuncCall("return", new ArrayList<>(), rleft, rright); :} |
+                    RETURN:r PUNTO_COMA {: RESULT = new FuncCall(FuncName.RETURN, new ArrayList<>(), rleft, rright); :} |
                     RETURN:r expr:e PUNTO_COMA {:
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
-                        RESULT = new FuncCall("return", args, rleft, rright);
+                        RESULT = new FuncCall(FuncName.RETURN, args, rleft, rright);
                     :};
 
 funcion_slice ::= slices_index |
@@ -297,8 +297,8 @@ funcion_embebida ::= fmt_println:f {: RESULT = f; :} |
                         strconv_parse_float:s {: RESULT = s; :} |
                         reflect_type_of:r {: RESULT = r; :};
 
-fmt_println ::= FMT_PRINTLN:f PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {: RESULT = new FuncCall("fmt.Println", a, fleft, fright); :} |
-                FMT_PRINTLN:f PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new FuncCall("fmt.Println", new ArrayList<>(), fleft, fright); :};
+fmt_println ::= FMT_PRINTLN:f PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {: RESULT = new FuncCall(FuncName.FMT_PRINTLN, a, fleft, fright); :} |
+                FMT_PRINTLN:f PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new FuncCall(FuncName.FMT_PRINTLN, new ArrayList<>(), fleft, fright); :};
 
 args_println ::= args_println:a COMA expr:e {: a.add(e); RESULT = a; :} |
                     expr:e {:
@@ -310,24 +310,24 @@ args_println ::= args_println:a COMA expr:e {: a.add(e); RESULT = a; :} |
 strconv_atoi ::= STRCONV_ATOI:s PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
-                        RESULT = new FuncCall("strconv.Atoi", args, sleft, sright);
+                        RESULT = new FuncCall(FuncName.STRCONV_ATOI, args, sleft, sright);
                     :};
 
 strconv_parse_float ::= STRCONV_PARSE_FLOAT:s PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                             List<ASTNode> args = new ArrayList<>();
                             args.add(e);
-                            RESULT = new FuncCall("strconv.ParseFloat", args, sleft, sright);
+                            RESULT = new FuncCall(FuncName.STRCONV_PARSE_FLOAT, args, sleft, sright);
                         :};
 
 reflect_type_of ::= REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
-                        RESULT = new FuncCall("reflect.TypeOf", args, rleft, rright);
+                        RESULT = new FuncCall(FuncName.REFLECT_TYPE_OF, args, rleft, rright);
                     :} |
                     REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO PUNTO STRING {:
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
-                        RESULT = new FuncCall("reflect.TypeOf", args, rleft, rright);
+                        RESULT = new FuncCall(FuncName.REFLECT_TYPE_OF, args, rleft, rright);
                     :};
 
 expr ::= expr:l OR expr:r {: RESULT = new Binary(l, BinaryOperator.OR, r, lleft, lright); :} |
