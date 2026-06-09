@@ -46,7 +46,7 @@ parser code {:
         if (expected_token_ids().isEmpty()) {
             description.append("Token inesperado: \"").append(lexeme).append("\" (").append(symbol).append(")");
         } else {
-            description.append("Se encontró \"").append(lexeme).append("\", se esperaba: [");
+            description.append("Se encontro \"").append(lexeme).append("\", se esperaba: [");
             for (Integer expected_token_id : expected_token_ids()) {
                 if (!symbl_name_from_id(expected_token_id).equals("error")) {
                     description.append(symbl_name_from_id(expected_token_id));
@@ -149,6 +149,7 @@ non terminal List<ASTNode> args_println;
 non terminal ASTNode fmt_println, strconv_atoi, strconv_parse_float, reflect_type_of;
 non terminal struct;
 non terminal funcion_slice, slices_index, strings_join, len, append;
+non terminal fin_programa;
 
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
@@ -164,7 +165,9 @@ precedence right UMINUS;
 /***************************************** GRAMMAR *****************************************/
 start with inicio;
 
-inicio ::= funcion_main:f {: RESULT = new ProgramNode(f, fleft, fright); :};
+inicio ::= funcion_main:f fin_programa {: RESULT = new ProgramNode(f, fleft, fright); :};
+
+fin_programa ::= PUNTO_COMA | /* empty */;
 
 funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b
                     {: RESULT = new FuncDecl("main", b, bleft, bright); :};
@@ -206,9 +209,9 @@ tipo_dato ::= INT {: RESULT = VarType.INT; :} |
 definicion ::= IGUAL expr:e {: RESULT = e; :} |
                 /* empty */ {: RESULT = null; :};
 
-asignacion ::= ID:i SUMA_IMPLICITA expr:e {: RESULT = new Assign(i, e, ileft, iright); :} |
-                ID:i RESTA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.SUMA_IMPLICITA, e, ileft, iright); :} |
-                ID:i IGUAL expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.RESTA_IMPLICITA, e, ileft, iright); :};
+asignacion ::= ID:i SUMA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.SUMA_IMPLICITA, e, ileft, iright); :} |
+                ID:i RESTA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.RESTA_IMPLICITA, e, ileft, iright); :} |
+                ID:i IGUAL expr:e {: RESULT = new Assign(i, e, ileft, iright); :};
 
 inc_dec ::= ID:i INCREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :} |
             ID:i DECREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :};

@@ -162,13 +162,13 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 this.output.append(line).append("\n");
             }
             case FuncName.STRCONV_ATOI ->
-                this.evaluate(ctx); // usado como expresión
+                this.evaluate(ctx); // usado como expresion
             case FuncName.STRCONV_PARSE_FLOAT ->
                 this.evaluate(ctx);
             case FuncName.REFLECT_TYPE_OF ->
                 this.evaluate(ctx);
             case FuncName.ID ->
-                this.addError("Función desconocida: \"" + ctx.functionName.getName() + "\"",
+                this.addError("Funcion desconocida: \"" + ctx.functionName.getName() + "\"",
                         ctx.line, ctx.column);
         }
         return this.defaultVoid;
@@ -229,7 +229,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 yield new StringValue(arg.getType(), arg.line(), arg.column());
             }
             case FuncName.ID -> {
-                this.addError("Función desconocida: \"" + ctx.functionName.getName() + "\"",
+                this.addError("Funcion desconocida: \"" + ctx.functionName.getName() + "\"",
                         ctx.line, ctx.column);
                 yield new NullValue(ctx.line, ctx.column);
             }
@@ -340,7 +340,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             while (true) {
                 ValueWrapper cond = visit(ctx.condition);
                 if (!(cond instanceof BoolValue c)) {
-                    this.addError("La condición del 'for' debe ser de tipo bool",
+                    this.addError("La condicion del 'for' debe ser de tipo bool",
                             ctx.line, ctx.column);
                     break;
                 }
@@ -374,7 +374,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             while (true) {
                 ValueWrapper cond = visit(ctx.condition);
                 if (!(cond instanceof BoolValue c)) {
-                    this.addError("La condición del 'for' debe ser de tipo bool",
+                    this.addError("La condicion del 'for' debe ser de tipo bool",
                             ctx.line, ctx.column);
                     break;
                 }
@@ -411,7 +411,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(If.Context ctx) {
         ValueWrapper condVal = visit(ctx.condition);
         if (!(condVal instanceof BoolValue c)) {
-            this.addError("La condición del 'if' debe ser de tipo bool",
+            this.addError("La condicion del 'if' debe ser de tipo bool",
                     ctx.line, ctx.column);
             return this.defaultVoid;
         }
@@ -426,7 +426,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         for (int i = 0; i < elseIfConds.size(); i++) {
             ValueWrapper condition = visit(elseIfConds.get(i));
             if (!(condition instanceof BoolValue cond)) {
-                this.addError("La condición del 'else if' debe ser de tipo bool",
+                this.addError("La condicion del 'else if' debe ser de tipo bool",
                         elseIfConds.get(i).getLine(), elseIfConds.get(i).getColumn());
                 return this.defaultVoid;
             }
@@ -450,7 +450,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return this.defaultVoid;
         }
         ValueWrapper right = visit(ctx.value);
-        ValueWrapper result = this.applyArithmetic(sym.getValue(), ctx.operator, right, ctx.line, ctx.column);
+        ValueWrapper result = this.applyArithmetic(sym.getValue(), ctx.operator == BinaryOperator.SUMA_IMPLICITA ? BinaryOperator.SUMA : BinaryOperator.RESTA, right, ctx.line, ctx.column);
         if (result != null) {
             this.symbolTable.assign(ctx.name, result, ctx.line, ctx.column);
         }
@@ -606,7 +606,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return new NullValue(line, col);
         }
 
-        // string + string -> concatenación
+        // string + string -> concatenacion
         if (op == BinaryOperator.SUMA && left instanceof StringValue l && right instanceof StringValue r) {
             return new StringValue(l.value() + r.value(), line, col);
         }
@@ -625,9 +625,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             double l = toDouble(left);
             double r = toDouble(right);
 
-            // División por cero
+            // Division por cero
             if ((op == BinaryOperator.DIVISION || op == BinaryOperator.MODULO) && r == 0) {
-                this.addError("División por cero", line, col);
+                this.addError("Division por cero", line, col);
                 return new NullValue(line, col);
             }
 

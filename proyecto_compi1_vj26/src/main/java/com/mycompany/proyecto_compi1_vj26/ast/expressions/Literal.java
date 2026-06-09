@@ -5,7 +5,6 @@
 package com.mycompany.proyecto_compi1_vj26.ast.expressions;
 
 import com.mycompany.proyecto_compi1_vj26.ast.BaseNode;
-import com.mycompany.proyecto_compi1_vj26.models.ValType;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value.ValueWrapper;
 
