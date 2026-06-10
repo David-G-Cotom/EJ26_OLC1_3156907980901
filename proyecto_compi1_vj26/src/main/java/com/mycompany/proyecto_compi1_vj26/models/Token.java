@@ -10,22 +10,16 @@ package com.mycompany.proyecto_compi1_vj26.models;
  */
 public class Token {
     
-    private final int number;
     private final String lexeme;
     private final String type;
     private final int line;
     private final int column;
 
-    public Token(int number, String lexeme, String type, int line, int column) {
-        this.number = number;
+    public Token(String lexeme, String type, int line, int column) {
         this.lexeme = lexeme;
         this.type = type;
         this.line = line;
         this.column = column;
-    }
-
-    public int getNumber() {
-        return number;
     }
 
     public String getLexeme() {
@@ -46,7 +40,7 @@ public class Token {
 
     @Override
     public String toString() {
-        return "Token{" + "number=" + number + ", lexeme=" + lexeme + ", type=" + type + ", line=" + line + ", column=" + column + '}';
+        return "Token{" + "lexeme=" + lexeme + ", type=" + type + ", line=" + line + ", column=" + column + '}';
     }
     
 }

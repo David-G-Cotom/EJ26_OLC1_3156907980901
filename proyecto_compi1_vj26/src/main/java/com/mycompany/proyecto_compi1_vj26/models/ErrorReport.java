@@ -10,22 +10,16 @@ package com.mycompany.proyecto_compi1_vj26.models;
  */
 public class ErrorReport {
 
-    private final int number;
     private final String description;
     private final int line;
     private final int column;
     private final ErrorType type;
 
-    public ErrorReport(int number, String description, int line, int column, ErrorType type) {
-        this.number = number;
+    public ErrorReport(String description, int line, int column, ErrorType type) {
         this.description = description;
         this.line = line;
         this.column = column;
         this.type = type;
-    }
-
-    public int getNumber() {
-        return number;
     }
 
     public String getDescription() {

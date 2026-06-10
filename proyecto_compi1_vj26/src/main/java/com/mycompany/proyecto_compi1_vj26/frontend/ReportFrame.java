@@ -168,11 +168,11 @@ public class ReportFrame extends javax.swing.JFrame {
         for (int i = 0; i < data.size(); i++) {
             if (mode == Mode.TOKENS) {
                 Token t = (Token) data.get(i);
-                rows[i] = new Object[]{t.getNumber(), t.getLexeme(), t.getType(),
+                rows[i] = new Object[]{i + 1, t.getLexeme(), t.getType(),
                     t.getLine(), t.getColumn()};
             } else {
                 ErrorReport e = (ErrorReport) data.get(i);
-                rows[i] = new Object[]{e.getNumber(), e.getDescription(), e.getLine(),
+                rows[i] = new Object[]{i + 1, e.getDescription(), e.getLine(),
                     e.getColumn(), e.getType().getType()};
             }
         }
