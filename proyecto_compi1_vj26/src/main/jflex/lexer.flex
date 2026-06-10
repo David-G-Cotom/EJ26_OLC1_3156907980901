@@ -17,17 +17,13 @@ import com.mycompany.proyecto_compi1_vj26.models.Token;
     private StringBuilder string;
 
     private ArrayList<Token> tokenList;
-    private int tokenCounter = 0;
 
     private ArrayList<ErrorReport> lexicalErrors;
-    private int errorCounter = 0;
 
     private boolean insertSemicolon = false;
 
     private void error(String token) {
-        this.errorCounter++;
         this.lexicalErrors.add(new ErrorReport(
-            this.errorCounter,
             "El simbolo '" + token + "' no es aceptado en el lenguaje",
             yyline, yycolumn,
             ErrorType.LEXICO
@@ -59,6 +55,12 @@ import com.mycompany.proyecto_compi1_vj26.models.Token;
             case sym.PARENTESIS_CERRADO:
             case sym.CORCHETE_CERRADO:
             case sym.LLAVE_CERRADO:
+            case sym.INT:
+            case sym.FLOAT:
+            case sym.STRING:
+            case sym.BOOL:
+            case sym.RUNE:
+                System.out.println(sym.terminalNames[type]);
                 this.insertSemicolon = true;
                 break;
             default:
@@ -69,9 +71,7 @@ import com.mycompany.proyecto_compi1_vj26.models.Token;
     //Parser Code
     private Symbol symbol(int type) {
         this.updateASI(type);
-        this.tokenCounter++;
         this.tokenList.add(new Token(
-            this.tokenCounter,
             yytext(),
             sym.terminalNames[type],
             yyline, yycolumn
@@ -81,9 +81,7 @@ import com.mycompany.proyecto_compi1_vj26.models.Token;
 
     private Symbol symbol(int type, Object value) {
         this.updateASI(type);
-        this.tokenCounter++;
         this.tokenList.add(new Token(
-            this.tokenCounter,
             value.toString(),
             sym.terminalNames[type],
             yyline, yycolumn
@@ -236,6 +234,7 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
         yybegin(YYINITIAL);
         if (this.insertSemicolon) {
             this.insertSemicolon = false;
+            System.out.println("Se integro un PUNTO_COMA");
             return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
         }
     }
@@ -243,6 +242,7 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
         yybegin(YYINITIAL);
         if (this.insertSemicolon) {
             this.insertSemicolon = false;
+            System.out.println("Se integro un PUNTO_COMA");
             return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
         }
         return symbol(sym.EOF);
@@ -256,9 +256,7 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
     {InputCharacter} { this.string.append(yytext()); }
     {LineTerminator} { /* Ignore */ }
     <<EOF>> {
-        this.errorCounter++;
         this.lexicalErrors.add(new ErrorReport(
-            this.errorCounter,
             "Comentario multilinea no cerrado (falta */)",
             yyline, yycolumn,
             ErrorType.LEXICO
@@ -275,12 +273,19 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
     "\\r"  { this.string.append('\r'); }
     "\\t"  { this.string.append('\t'); }
     \" {
-        System.out.println("TEXTO: " + this.string.toString().trim());
+        System.out.println("TEXTO: " + this.string.toString());
         yybegin(YYINITIAL);
-        return symbol(sym.TEXTO, this.string.toString().trim());
+        return symbol(sym.TEXTO, this.string.toString());
     }
     {InputCharacter} { this.string.append(yytext()); }
-    {LineTerminator} { this.string.append("\n"); }
+    {LineTerminator} {
+        lexicalErrors.add(new ErrorReport(
+            "String sin cerrar (falta \")",
+            yyline, yycolumn,
+            ErrorType.LEXICO
+        ));
+        yybegin(YYINITIAL);
+    }
 }
 
 /* Ignored whitespace */
@@ -289,6 +294,7 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
 {LineTerminator} { 
     if (this.insertSemicolon) {
         this.insertSemicolon = false;
+        System.out.println("Se integro un PUNTO_COMA");
         return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
     }
 }
@@ -298,6 +304,7 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
 <<EOF>> {
     if (this.insertSemicolon) {
         this.insertSemicolon = false;
+        System.out.println("Se integro un PUNTO_COMA");
         return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
     }
     return symbol(sym.EOF);

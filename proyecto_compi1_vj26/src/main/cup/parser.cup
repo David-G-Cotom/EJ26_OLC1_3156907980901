@@ -14,7 +14,6 @@ parser code {:
     // Utils
     Lexer lex;
     private ArrayList<ErrorReport> syntaxErrors;
-    private int errorCounter = 0;
 
     // Parser and Lexer Connection
     public parser(Lexer lex) {
@@ -56,9 +55,7 @@ parser code {:
             description.append("]");
         }
 
-        this.errorCounter++;
         this.syntaxErrors.add(new ErrorReport(
-            this.errorCounter,
             description.toString(),
             line, column,
             ErrorType.SINTACTICO
@@ -78,18 +75,14 @@ parser code {:
             }
         } catch (Exception e) {
         }
-        this.errorCounter++;
         this.syntaxErrors.add(new ErrorReport(
-            this.errorCounter,
             (message != null ? message : "Error de sintaxis") + (lexeme.isEmpty() ? "" : ": \"" + lexeme + "\""),
             line, column, ErrorType.SINTACTICO
         ));
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) {
-        this.errorCounter++;
         this.syntaxErrors.add(new ErrorReport(
-            this.errorCounter++,
             "Error de sintaxis severo detectado, no se pudo recuperar el analisis, revise bien el codigo",
             cur_token.left, cur_token.right, ErrorType.SINTACTICO
         ));
@@ -149,7 +142,7 @@ non terminal List<ASTNode> args_println;
 non terminal ASTNode fmt_println, strconv_atoi, strconv_parse_float, reflect_type_of;
 non terminal struct;
 non terminal funcion_slice, slices_index, strings_join, len, append;
-non terminal fin_programa;
+non terminal fin_llave;
 
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
@@ -165,21 +158,24 @@ precedence right UMINUS;
 /***************************************** GRAMMAR *****************************************/
 start with inicio;
 
-inicio ::= funcion_main:f fin_programa {: RESULT = new ProgramNode(f, fleft, fright); :};
+inicio ::= funcion_main:f fin_llave {: RESULT = new ProgramNode(f, fleft, fright); :} |
+            error fin_llave {: RESULT = null; :};
 
-fin_programa ::= PUNTO_COMA | /* empty */;
+fin_llave ::= PUNTO_COMA | /* empty */;
 
 funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b
+                    {: RESULT = new FuncDecl("main", b, bleft, bright); :} |
+                FUNC MAIN error bloque_codigo:b
                     {: RESULT = new FuncDecl("main", b, bleft, bright); :};
 
 bloque_codigo ::= LLAVE_ABIERTO:l contenido:c LLAVE_CERRADO {: RESULT = new Block(c, lleft, lright); :} |
-                    LLAVE_ABIERTO:l LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :};
+                    LLAVE_ABIERTO:l LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :} |
+                    LLAVE_ABIERTO:l error LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :};
 
 contenido ::= contenido:c instruccion:i {:
                     if (i != null) c.add(i);
                     RESULT = c;
                 :} |
-                contenido:c error PUNTO_COMA {: RESULT = c; :} |
                 instruccion:i {:
                     List<ASTNode> list = new ArrayList<>();
                     if (i != null) list.add(i);
@@ -189,13 +185,14 @@ contenido ::= contenido:c instruccion:i {:
 instruccion ::= variable:v PUNTO_COMA {: RESULT = v; :} |
                 asignacion:a PUNTO_COMA {: RESULT = a; :} |
                 funcion_embebida:f PUNTO_COMA {: RESULT = f; :} |
-                bloque_codigo:b {: RESULT = b; :} |
-                sentencia_if:s {: RESULT = s; :} |
+                bloque_codigo:b fin_llave {: RESULT = b; :} |
+                sentencia_if:s fin_llave {: RESULT = s; :} |
                 sentencia_switch:s {: RESULT = s; :} |
-                sentencia_for:s {: RESULT = s; :} |
+                sentencia_for:s fin_llave {: RESULT = s; :} |
                 inc_dec:i PUNTO_COMA {: RESULT = i; :} |
                 transferencia:t {: RESULT = t; :} |
-                struct {: RESULT = null; :};
+                struct {: RESULT = null; :} |
+                error PUNTO_COMA {: RESULT = null; :};
 
 variable ::= VAR:v ID:i tipo_dato:t definicion:d {: RESULT = new VarDecl(i, t, d, vleft, vright); :} |
             ID:i IGUAL_IMPLICITO expr:e {: RESULT = new ImplicitVarDecl(i, e, ileft, iright); :};
@@ -214,16 +211,18 @@ asignacion ::= ID:i SUMA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, Bina
                 ID:i IGUAL expr:e {: RESULT = new Assign(i, e, ileft, iright); :};
 
 inc_dec ::= ID:i INCREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :} |
-            ID:i DECREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :};
+            ID:i DECREMENTO {: RESULT = new IncDec(i, "--", ileft, iright); :};
 
 sentencia_if ::= IF:i expr:e bloque_codigo:b fin_if:f {:
                         List<ASTNode> elseIfConds = (List<ASTNode>) f[0];
                         List<Block> elseIfBlocks = (List<Block>) f[1];
                         Block elseBlock = (Block) f[2];
                         RESULT = new If(e, b, elseIfConds, elseIfBlocks, elseBlock, ileft, iright);
-                    :};
+                    :} |
+                IF error bloque_codigo {: RESULT = null; :};
 
 fin_if ::= ELSE continuar_else:c {: RESULT = c; :} |
+            ELSE error bloque_codigo:b {: RESULT = new Object[]{new ArrayList<>(), new ArrayList<>(), b}; :} |
             /* empty */ {: RESULT = new Object[]{new ArrayList<>(), new ArrayList<>(), null}; :};
 
 continuar_else ::= sentencia_if:s {:
@@ -239,7 +238,8 @@ continuar_else ::= sentencia_if:s {:
                     :} |
                     bloque_codigo:b {: RESULT = new Object[]{new ArrayList<>(), new ArrayList<>(), b}; :};
 
-sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :};
+sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :} |
+                        SWITCH error LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :};
 
 bloque_switch ::= bloque_switch:b caso_switch:c {:
                         b.add(c);
@@ -256,7 +256,8 @@ bloque_switch ::= bloque_switch:b caso_switch:c {:
                         RESULT = list;
                     :};
 
-caso_switch ::= CASE expr:e DOS_PUNTOS contenido:c {: RESULT = new Object[]{e, c}; :};
+caso_switch ::= CASE expr:e DOS_PUNTOS contenido:c {: RESULT = new Object[]{e, c}; :} |
+                CASE error DOS_PUNTOS contenido {: RESULT = null; :};
 
 sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
                         ASTNode init = c[0];
@@ -268,7 +269,8 @@ sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
                         } else {
                             RESULT = new For(init, condition, increment, b, fleft, fright);
                         }
-                    :};
+                    :} |
+                    FOR error bloque_codigo {: RESULT = null; :};
 
 condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
                 variable:v PUNTO_COMA expr:e PUNTO_COMA inc_dec:i {: RESULT = new ASTNode[]{v, e, i}; :} |
@@ -281,7 +283,10 @@ transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
                         RESULT = new FuncCall(FuncName.RETURN, args, rleft, rright);
-                    :};
+                    :} |
+                    RETURN error PUNTO_COMA {: RESULT = null; :} |
+                    BREAK error PUNTO_COMA {: RESULT = null; :} |
+                    CONTINUE error PUNTO_COMA {: RESULT = null; :};
 
 funcion_slice ::= slices_index |
                         strings_join |
@@ -302,7 +307,8 @@ funcion_embebida ::= fmt_println:f {: RESULT = f; :} |
                         reflect_type_of:r {: RESULT = r; :};
 
 fmt_println ::= FMT_PRINTLN:f PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {: RESULT = new FuncCall(FuncName.FMT_PRINTLN, a, fleft, fright); :} |
-                FMT_PRINTLN:f PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new FuncCall(FuncName.FMT_PRINTLN, new ArrayList<>(), fleft, fright); :};
+                FMT_PRINTLN:f PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new FuncCall(FuncName.FMT_PRINTLN, new ArrayList<>(), fleft, fright); :} |
+                FMT_PRINTLN PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
 args_println ::= args_println:a COMA expr:e {: a.add(e); RESULT = a; :} |
                     expr:e {:
@@ -315,13 +321,15 @@ strconv_atoi ::= STRCONV_ATOI:s PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
                         RESULT = new FuncCall(FuncName.STRCONV_ATOI, args, sleft, sright);
-                    :};
+                    :} |
+                    STRCONV_ATOI PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
 strconv_parse_float ::= STRCONV_PARSE_FLOAT:s PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                             List<ASTNode> args = new ArrayList<>();
                             args.add(e);
                             RESULT = new FuncCall(FuncName.STRCONV_PARSE_FLOAT, args, sleft, sright);
-                        :};
+                        :} |
+                        STRCONV_PARSE_FLOAT PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
 reflect_type_of ::= REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {:
                         List<ASTNode> args = new ArrayList<>();
@@ -332,7 +340,8 @@ reflect_type_of ::= REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRA
                         List<ASTNode> args = new ArrayList<>();
                         args.add(e);
                         RESULT = new FuncCall(FuncName.REFLECT_TYPE_OF, args, rleft, rright);
-                    :};
+                    :} |
+                    REFLECT_TYPE_OF PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
 expr ::= expr:l OR expr:r {: RESULT = new Binary(l, BinaryOperator.OR, r, lleft, lright); :} |
             expr_and:e {: RESULT = e; :};
@@ -375,4 +384,5 @@ expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} 
         FALSE:v {: RESULT = new Literal(new BoolValue(false, vleft, vright), vleft, vright); :} |
         NIL:v {: RESULT = new Literal(new NullValue(vleft, vright), vleft, vright); :} |
         funcion_slice {: RESULT = null; :} |
-        funcion_embebida:f {: RESULT = f; :};
+        funcion_embebida:f {: RESULT = f; :} |
+        PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
