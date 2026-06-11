@@ -21,19 +21,27 @@ public class SymbolTable {
     private final List<LinkedHashMap<String, Symbol>> scopes;
 
     private int currentLevel;
+    private boolean isBlockFor;
 
     private final List<ErrorReport> semanticErrors;
-    private int errorCounter;
 
-    public SymbolTable() {
+    public SymbolTable(List<ErrorReport> semanticErrors) {
         this.scopes = new ArrayList<>();
-        this.semanticErrors = new ArrayList<>();
+        this.semanticErrors = semanticErrors;
         this.currentLevel = -1;
-        this.errorCounter = 0;
+        this.isBlockFor = false;
     }
 
     public int getCurrentLevel() {
         return currentLevel;
+    }
+
+    public boolean isIsBlockFor() {
+        return isBlockFor;
+    }
+
+    public void setIsBlockFor(boolean isBlockFor) {
+        this.isBlockFor = isBlockFor;
     }
 
     public List<ErrorReport> getSemanticErrors() {
@@ -56,11 +64,16 @@ public class SymbolTable {
         LinkedHashMap<String, Symbol> currentScope = this.currentScope();
 
         if (currentScope.containsKey(name)) {
-            this.addError(
-                    "La variable \"" + name + "\" ya fue declarada en este ámbito",
-                    line, column
-            );
-            return false;
+            if (this.isBlockFor && !currentScope.keySet().iterator().next().equals(name)) {
+                currentScope.get(name).setValue(value);
+                return true;
+            } else {
+                this.addError(
+                        "La variable \"" + name + "\" ya fue declarada en este ámbito",
+                        line, column
+                );
+                return false;
+            }
         }
 
         currentScope.put(name, new Symbol(name, type, value, this.currentLevel, line, column));
@@ -75,9 +88,8 @@ public class SymbolTable {
     }
 
     private void addError(String description, int line, int column) {
-        this.errorCounter++;
         this.semanticErrors.add(new ErrorReport(
-                this.errorCounter, description, line, column, ErrorType.SEMANTICO
+                description, line, column, ErrorType.SEMANTICO
         ));
     }
 
@@ -127,7 +139,7 @@ public class SymbolTable {
         this.scopes.clear();
         this.semanticErrors.clear();
         this.currentLevel = -1;
-        this.errorCounter = 0;
+        this.isBlockFor = false;
     }
 
 }

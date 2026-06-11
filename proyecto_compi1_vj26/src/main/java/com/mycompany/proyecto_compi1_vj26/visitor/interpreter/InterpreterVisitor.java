@@ -28,14 +28,12 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     private final ValueWrapper defaultVoid = new VoidValue(-1, -1);
     private final SymbolTable symbolTable;
     private final List<ErrorReport> semanticErrors;
-    private int errorCounter;
     private int loopDepth = 0;
 
     public InterpreterVisitor() {
-        this.symbolTable = new SymbolTable();
         this.semanticErrors = new ArrayList<>();
+        this.symbolTable = new SymbolTable(this.semanticErrors);
         this.output = new StringBuilder();
-        this.errorCounter = 0;
     }
 
     public String getOutput() {
@@ -47,13 +45,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     public List<ErrorReport> getSemanticErrors() {
-        List<ErrorReport> all = new ArrayList<>(semanticErrors);
-        all.addAll(symbolTable.getSemanticErrors());
-        return all;
-    }
-
-    public int getErrorCounter() {
-        return errorCounter;
+        return semanticErrors;
     }
 
     public int getLoopDepth() {
@@ -70,7 +62,6 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         this.symbolTable.reset();
         this.output.setLength(0);
         this.semanticErrors.clear();
-        this.errorCounter = 0;
         this.loopDepth = 0;
 
         try {
@@ -148,6 +139,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(FuncCall.Context ctx) {
+        ValueWrapper value = new NullValue(ctx.line, ctx.column);
         switch (ctx.functionName) {
             case FuncName.RETURN -> {
                 ValueWrapper val = ctx.args.isEmpty() ? new NullValue(ctx.line, ctx.column) : visit(ctx.args.get(0));
@@ -158,18 +150,22 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 for (ASTNode arg : ctx.args) {
                     ValueWrapper val = visit(arg);
                     line.append(this.formatValue(val));
+                    line.append(" ");
                 }
                 this.output.append(line).append("\n");
             }
             case FuncName.STRCONV_ATOI ->
-                this.evaluate(ctx); // usado como expresion
+                value = this.evaluate(ctx); // usado como expresion RETORNAR
             case FuncName.STRCONV_PARSE_FLOAT ->
-                this.evaluate(ctx);
+                value = this.evaluate(ctx); // usado como expresion RETORNAR
             case FuncName.REFLECT_TYPE_OF ->
-                this.evaluate(ctx);
+                value = this.evaluate(ctx); // usado como expresion RETORNAR
             case FuncName.ID ->
                 this.addError("Funcion desconocida: \"" + ctx.functionName.getName() + "\"",
                         ctx.line, ctx.column);
+        }
+        if (!(value instanceof NullValue)) {
+            return value;
         }
         return this.defaultVoid;
     }
@@ -194,7 +190,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 try {
                     yield new IntValue(Integer.parseInt(s.value().trim()), s.line(), s.column());
                 } catch (NumberFormatException e) {
-                    this.addError("strconv.Atoi: \"" + s.value() + "\" no es un entero válido",
+                    this.addError("strconv.Atoi: \"" + s.value() + "\" no es un entero valido",
                             ctx.line, ctx.column);
                     yield new NullValue(ctx.line, ctx.column);
                 }
@@ -214,7 +210,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 try {
                     yield new DoubleValue(Double.parseDouble(s.value().trim()), s.line(), s.column());
                 } catch (NumberFormatException e) {
-                    this.addError("strconv.ParseFloat: \"" + s.value() + "\" no es un decimal válido",
+                    this.addError("strconv.ParseFloat: \"" + s.value() + "\" no es un decimal valido",
                             ctx.line, ctx.column);
                     yield new NullValue(ctx.line, ctx.column);
                 }
@@ -334,6 +330,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(For.Context ctx) {
         this.loopDepth++;
         this.symbolTable.pushScope();
+        this.symbolTable.setIsBlockFor(true);
         try {
             visit(ctx.init);
 
@@ -361,6 +358,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         } catch (BreakException ignored) {
             // Sale del bucle
         } finally {
+            this.symbolTable.setIsBlockFor(false);
             this.symbolTable.popScope();
             this.loopDepth--;
         }
@@ -523,7 +521,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     yield value;
                 }
                 if (value instanceof IntValue i) {
-                    yield new DoubleValue(Integer.valueOf(i.value()).doubleValue(), i.line(), i.column()); // int → float64 implícito
+                    yield new DoubleValue(Integer.valueOf(i.value()).doubleValue(), i.line(), i.column()); // int → float64 implicito
                 }
                 this.addError("No se puede asignar " + value.getType() + " a una variable float64",
                         line, col);
@@ -550,7 +548,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     yield value;
                 }
                 if (value instanceof IntValue i) {
-                    yield new CharValue((char) i.value(), line, col); // int → rune
+                    yield new CharValue((char) i.value(), line, col); // int -> rune
                 }
                 this.addError("No se puede asignar " + value.getType() + " a una variable rune",
                         line, col);
@@ -619,7 +617,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             right = new IntValue((int) c.value(), c.line(), c.column());
         }
 
-        // Ambos numéricos
+        // Ambos numericos
         if (this.isNumeric(left) && this.isNumeric(right)) {
             boolean useDouble = (left instanceof DoubleValue) || (right instanceof DoubleValue);
             double l = toDouble(left);
@@ -782,13 +780,15 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
             return String.valueOf(Double.valueOf(d.value()));
         }
+        if (val instanceof CharValue c) {
+            return (int) c.value() + "";
+        }
         return String.valueOf(val);
     }
 
     private void addError(String description, int line, int col) {
-        this.errorCounter++;
         this.semanticErrors.add(new ErrorReport(
-                this.errorCounter, description, line, col, ErrorType.SEMANTICO
+                description, line, col, ErrorType.SEMANTICO
         ));
     }
 
