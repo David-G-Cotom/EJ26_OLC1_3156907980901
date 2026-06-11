@@ -9,17 +9,17 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Insets;
 import java.io.File;
-import javax.swing.BorderFactory;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.text.Element;
 
 /**
  * Componente que representa una pestaña del editor. Contiene: - JTextArea
- * principal (editor de código) - LineNumberPanel a la izquierda - JScrollPane
- * que los envuelve
+ * principal (editor de codigo) - JTextArea a la izquierda (contador de lineas)
+ * - JScrollPane que los envuelve
  *
- * También guarda la ruta del archivo (.glt) asociado, y un flag de "modificado"
- * para el título con asterisco.
+ * Tambien guarda la ruta del archivo (.glt) asociado, y un flag de "modificado"
+ * para el titulo con asterisco.
  *
  * @author david
  */
@@ -28,7 +28,9 @@ public class EditorTab extends javax.swing.JPanel {
     private static final Font EDITOR_FONT = new Font("Monospaced", Font.PLAIN, 13);
 
     private final JTextArea editor;
-    private File file;  // null si el archivo no ha sido guardado aún
+    private final JTextArea lineNumbers;
+    private final JScrollPane scrollPane;
+    private File file;  // null si el archivo no ha sido guardado aun
     private boolean modified;
 
     public EditorTab(File file, String content) {
@@ -44,35 +46,44 @@ public class EditorTab extends javax.swing.JPanel {
         this.editor.setBackground(Color.WHITE);
         this.editor.setForeground(new Color(30, 30, 30));
         this.editor.setCaretColor(new Color(30, 30, 30));
-        this.editor.setMargin(new Insets(4, 6, 4, 6));
+        this.editor.setMargin(new Insets(0, 6, 0, 6));
+
+        // --- Numeros de linea ---
+        this.lineNumbers = new JTextArea("1");
+        this.lineNumbers.setBackground(new Color(220, 220, 220));
+        this.lineNumbers.setForeground(Color.DARK_GRAY);
+        this.lineNumbers.setFont(EDITOR_FONT);
+        this.lineNumbers.setEditable(false);
+        this.lineNumbers.setFocusable(false);
+        // Alinear el texto a la derecha con un margen
+        this.lineNumbers.setMargin(new Insets(0, 5, 0, 10));
+
+        // --- ScrollPane ---
+        this.scrollPane = new JScrollPane(this.editor);
+
+        // Usar el panel de lineas como rowHeader del scrollPane.
+        // Esto sincroniza automaticamente el scroll vertical de ambos.
+        this.scrollPane.setRowHeaderView(this.lineNumbers);
 
         // Marcar como modificado al escribir
         this.editor.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                setModified(true);
+                updateLineNumbers();
             }
 
             @Override
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                setModified(true);
+                updateLineNumbers();
             }
 
             @Override
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                updateLineNumbers();
             }
         });
 
-        // --- Números de línea ---
-        LineNumber lineNumbers = new LineNumber(editor);
-
-        // --- ScrollPane ---
-        JScrollPane scroll = new JScrollPane(editor);
-        scroll.setRowHeaderView(lineNumbers);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-
-        add(scroll, BorderLayout.CENTER);
+        add(this.scrollPane, BorderLayout.CENTER);
     }
 
     /**
@@ -96,7 +107,7 @@ public class EditorTab extends javax.swing.JPanel {
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    // --- API pública ---
+    // --- API publica ---
     public JTextArea getEditor() {
         return editor;
     }
@@ -120,19 +131,46 @@ public class EditorTab extends javax.swing.JPanel {
 
     public void setModified(boolean m) {
         this.modified = m;
-        // La ventana principal escucha cambios de estado a través del DocumentListener
-        // y actualiza el título de la pestaña cuando sea necesario.
+        // La ventana principal escucha cambios de estado a traves del DocumentListener
+        // y actualiza el titulo de la pestaña cuando sea necesario.
     }
 
     /**
      * Nombre que debe aparecer en la pestaña. Si el archivo no tiene nombre
-     * aún: "sin_titulo.glt" Si fue modificado: agrega " *" al final
+     * aun: "sin_titulo.glt" Si fue modificado: agrega " *" al final
      *
      * @return
      */
     public String getTabTitle() {
         String name = (this.file != null) ? this.file.getName() : "sin_titulo.glt";
         return this.modified ? name + " *" : name;
+    }
+
+    /**
+     * Calcula y actualiza el texto del panel de numeracion.
+     */
+    private void updateLineNumbers() {
+        String text = editor.getText();
+        if (text == null) {
+            return;
+        }
+
+        // Contar el numero de lineas basandose en los saltos de linea (\n)
+        int caretPosition = this.editor.getDocument().getLength();
+        Element root = this.editor.getDocument().getDefaultRootElement();
+        StringBuilder numbers = new StringBuilder("1");
+
+        for (int i = 2; i <= root.getElementCount(); i++) {
+            numbers.append("\n").append(i);
+        }
+
+        // Para asegurar que la alineacion vertical sea perfecta con la fuente monoespaciada
+        // debemos añadir un espacio extra si la linea de texto termina en un salto.
+        if (text.endsWith("\n") && caretPosition > 0) {
+            numbers.append("\n ");
+        }
+
+        this.lineNumbers.setText(numbers.toString());
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

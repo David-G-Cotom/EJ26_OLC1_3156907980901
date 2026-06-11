@@ -400,25 +400,30 @@ public class IDEGoLite extends JFrame {
             try {
                 ast = (ProgramNode) p.parse().value;
             } catch (Exception e) {
-                consolePrintError("[ERROR SINTÁCTICO] " + e.getMessage());
+                this.consolePrintError("[ERROR SINTÁCTICO] " + e.getMessage());
                 this.lastTokens = lexer.getTokenList();
-                this.lastErrors = new ArrayList<>(p.getSyntaxErrors());
-                this.lastErrors.addAll(lexer.getLexicalErrors());
-                this.mostrarResumenErrores(lastErrors);
+                this.lastErrors = new ArrayList<>(lexer.getLexicalErrors());
+                this.lastErrors.addAll(p.getSyntaxErrors());
+                this.mostrarResumenErrores(this.lastErrors);
                 return;
             }
 
             // Recolectar tokens y errores lexicos/sintacticos
-            lastTokens = lexer.getTokenList();
+            this.lastTokens = lexer.getTokenList();
             this.lastErrors = new ArrayList<>();
             this.lastErrors.addAll(lexer.getLexicalErrors());
             this.lastErrors.addAll(p.getSyntaxErrors());
 
-            // Si hay errores lexicos o sintacticos: no ejecutar
+            // Si hay errores lexicos o sintacticos: avisar
             if (!this.lastErrors.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Hay errores dentro del codigo. Revisa el reporte de errores!!!",
+                        "Alerta de errores",
+                        JOptionPane.ERROR_MESSAGE
+                );
                 this.consolePrintError("[INFO] Compilacion fallida — " + this.lastErrors.size() + " error(es) encontrados.");
                 this.mostrarResumenErrores(this.lastErrors);
-                return;
             }
 
             // --- 3. Interpretacion ---
