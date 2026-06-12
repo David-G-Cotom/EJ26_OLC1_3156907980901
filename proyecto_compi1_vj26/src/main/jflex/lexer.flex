@@ -174,8 +174,6 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
     "main" { return symbol(sym.MAIN); }
     "true" { return symbol(sym.TRUE); }
     "false" { return symbol(sym.FALSE); }
-    "indice" { return symbol(sym.INDICE); }
-    "valor" { return symbol(sym.VALOR); }
 
     "if" { return symbol(sym.IF); }
     "else" { return symbol(sym.ELSE); }

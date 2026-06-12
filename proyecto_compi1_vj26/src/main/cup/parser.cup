@@ -97,7 +97,7 @@ terminal IGUALDAD, NO_IGUAL, MAYOR, MENOR, MAYOR_IGUAL, MENOR_IGUAL;
 terminal AND, OR, NOT;
 terminal IGUAL, IGUAL_IMPLICITO, DOS_PUNTOS, COMA, PUNTO_COMA, INCREMENTO, DECREMENTO;
 terminal INT, FLOAT, STRING, BOOL, RUNE, STRUCT, NIL;
-terminal FUNC, VAR, RETURN, MAIN, INDICE, VALOR;
+terminal FUNC, VAR, RETURN, MAIN;
 terminal IF, ELSE, SWITCH, CASE, DEFAULT, FOR, RANGE, BREAK, CONTINUE;
 terminal SLICES_INDEX, STRINGS_JOIN, LEN, APPEND;
 terminal FMT_PRINTLN, STRCONV_ATOI, STRCONV_PARSE_FLOAT, REFLECT_TYPE_OF;
@@ -274,7 +274,7 @@ sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
 
 condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
                 variable:v PUNTO_COMA expr:e PUNTO_COMA inc_dec:i {: RESULT = new ASTNode[]{v, e, i}; :} |
-                INDICE COMA VALOR IGUAL_IMPLICITO RANGE ID:i {: RESULT = null; :};
+                ID COMA ID IGUAL_IMPLICITO RANGE ID:i {: RESULT = null; :};
 
 transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |
                     CONTINUE:c PUNTO_COMA {: RESULT = new Continue(cleft, cright); :} |
