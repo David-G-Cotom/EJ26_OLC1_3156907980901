@@ -330,11 +330,11 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(For.Context ctx) {
         this.loopDepth++;
         this.symbolTable.pushScope();
-        this.symbolTable.setIsBlockFor(true);
         try {
             visit(ctx.init);
 
             while (true) {
+                this.symbolTable.setIsBlockFor(true);
                 ValueWrapper cond = visit(ctx.condition);
                 if (!(cond instanceof BoolValue c)) {
                     this.addError("La condicion del 'for' debe ser de tipo bool",
@@ -690,9 +690,13 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return op == BinaryOperator.IGUALDAD ? new BoolValue(eq, line, col) : new BoolValue(!eq, line, col);
         }
 
-        // Mismo tipo
-        if (left.getType().equals(right.getType())) {
-            boolean eq = left.equals(right);
+        if (left instanceof StringValue sl && right instanceof StringValue sr) {
+            boolean eq = sl.value().equals(sr.value());
+            return op == BinaryOperator.IGUALDAD ? new BoolValue(eq, line, col) : new BoolValue(!eq, line, col);
+        }
+
+        if (left instanceof BoolValue bl && right instanceof BoolValue br) {
+            boolean eq = bl.value() == br.value();
             return op == BinaryOperator.IGUALDAD ? new BoolValue(eq, line, col) : new BoolValue(!eq, line, col);
         }
 

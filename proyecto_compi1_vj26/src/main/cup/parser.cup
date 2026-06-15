@@ -274,6 +274,7 @@ sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
 
 condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
                 variable:v PUNTO_COMA expr:e PUNTO_COMA inc_dec:i {: RESULT = new ASTNode[]{v, e, i}; :} |
+                variable:v PUNTO_COMA expr:e PUNTO_COMA asignacion:i {: RESULT = new ASTNode[]{v, e, i}; :} |
                 ID COMA ID IGUAL_IMPLICITO RANGE ID:i {: RESULT = null; :};
 
 transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |

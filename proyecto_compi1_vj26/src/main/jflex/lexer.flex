@@ -139,7 +139,17 @@ RuneLiteral = \'([^\r\n\'\\]|\\[nrt\"\\]|\\u[0-9A-Fa-f]{4})\'
     "[" { return symbol(sym.CORCHETE_ABIERTO); }
     "]" { return symbol(sym.CORCHETE_CERRADO); }
     "{" { return symbol(sym.LLAVE_ABIERTO); }
-    "}" { return symbol(sym.LLAVE_CERRADO); }
+    "}" {
+            if (this.insertSemicolon) {
+                this.insertSemicolon = false;
+
+                // devolver primero ;
+                yypushback(1);
+
+                return new Symbol(sym.PUNTO_COMA, yyline, yycolumn);
+            }
+            return symbol(sym.LLAVE_CERRADO);
+        }
 
     "==" { return symbol(sym.IGUALDAD); }
     "!=" { return symbol(sym.NO_IGUAL); }
