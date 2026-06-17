@@ -144,6 +144,11 @@ non terminal struct;
 non terminal funcion_slice, slices_index, strings_join, len, append;
 non terminal fin_llave;
 
+non terminal List<Object[]> lista_params;
+non terminal Object[] param;
+non terminal FuncDecl funcion_usuario;
+non terminal List<FuncDecl> declaraciones_globales;
+
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
 precedence left AND;
@@ -158,15 +163,54 @@ precedence right UMINUS;
 /***************************************** GRAMMAR *****************************************/
 start with inicio;
 
-inicio ::= funcion_main:f fin_llave {: RESULT = new ProgramNode(f, fleft, fright); :} |
+inicio ::= declaraciones_globales:dg1 funcion_main:f declaraciones_globales:dg2 fin_llave
+            {:
+                List<FuncDecl> all = new ArrayList<>(dg1);
+                all.addAll(dg2);
+                RESULT = new ProgramNode(f, all, fleft, fright);
+            :} |
             error fin_llave {: RESULT = null; :};
+
+declaraciones_globales ::= declaraciones_globales:d funcion_usuario:f {:
+                                d.add(f);
+                                RESULT = d;
+                            :} |
+                            /* empty */ {:
+                                RESULT = new ArrayList<>();
+                            :};
 
 fin_llave ::= PUNTO_COMA | /* empty */;
 
 funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b
-                    {: RESULT = new FuncDecl("main", b, bleft, bright); :} |
+                    {: RESULT = new FuncDecl("main", new ArrayList<>(), null, b, bleft, bright); :} |
                 FUNC MAIN error bloque_codigo:b
-                    {: RESULT = new FuncDecl("main", b, bleft, bright); :};
+                    {: RESULT = new FuncDecl("main", new ArrayList<>(), null, b, bleft, bright); :};
+
+funcion_usuario ::= FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, p, ret, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, p, null, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, new ArrayList<>(), ret, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, new ArrayList<>(), null, b, fleft, fright);
+                    :} |
+                    FUNC error bloque_codigo {: RESULT = null; :};
+
+lista_params ::= lista_params:l COMA param:p {:
+                    l.add(p);
+                    RESULT = l;
+                :} |
+                param:p {:
+                    List<Object[]> list = new ArrayList<>();
+                    list.add(p);
+                    RESULT = list;
+                :};
+
+param ::= ID:name tipo_dato:t {: RESULT = new Object[]{name, t}; :};
 
 bloque_codigo ::= LLAVE_ABIERTO:l contenido:c LLAVE_CERRADO {: RESULT = new Block(c, lleft, lright); :} |
                     LLAVE_ABIERTO:l LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :} |
@@ -399,6 +443,12 @@ expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} 
         TRUE:v {: RESULT = new Literal(new BoolValue(true, vleft, vright), vleft, vright); :} |
         FALSE:v {: RESULT = new Literal(new BoolValue(false, vleft, vright), vleft, vright); :} |
         NIL:v {: RESULT = new Literal(new NullValue(vleft, vright), vleft, vright); :} |
+        ID:name PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {:
+            RESULT = new UserFuncCall(name, a, nameleft, nameright);
+        :} |
+        ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO {:
+            RESULT = new UserFuncCall(name, new ArrayList<>(), nameleft, nameright);
+        :} |
         funcion_slice {: RESULT = null; :} |
         funcion_embebida:f {: RESULT = f; :} |
         PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};

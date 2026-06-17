@@ -62,6 +62,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         this.semanticErrors.clear();
         this.loopDepth = 0;
 
+        for (FuncDecl func : ctx.userFunctions) {
+            if (func != null) {
+                this.symbolTable.declareFunction(
+                        func.getName(), func, func.getLine(), func.getColumn()
+                );
+            }
+        }
+
         try {
             visit(ctx.mainFunction);
         } catch (ReturnException e) {
@@ -275,6 +283,67 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 yield new NullValue(ctx.line, ctx.column);
             }
         };
+    }
+
+    @Override
+    public ValueWrapper visit(UserFuncCall.Context ctx) {
+        FuncDecl decl = this.symbolTable.lookUpFunction(ctx.name, ctx.line, ctx.column);
+        if (decl == null) {
+            return new NullValue(ctx.line, ctx.column);
+        }
+        FuncDecl.Context funcCtx = new FuncDecl.Context(decl);
+
+        // Validar cantidad de argumentos
+        if (ctx.args.size() != funcCtx.params.size()) {
+            this.addError(
+                    "La función \"" + ctx.name + "\" espera " + funcCtx.params.size()
+                    + " argumento(s), se recibieron " + ctx.args.size(),
+                    ctx.line, ctx.column
+            );
+            return new NullValue(ctx.line, ctx.column);
+        }
+
+        // Cargar argumentos para evaluar
+        List<ValueWrapper> evaluatedArgs = new ArrayList<>();
+        for (ASTNode arg : ctx.args) {
+            evaluatedArgs.add(visit(arg));
+        }
+
+        // Crear scope para la función y declarar parámetros
+        this.symbolTable.pushScope();
+        try {
+            for (int i = 0; i < funcCtx.params.size(); i++) {
+                String paramName = (String) funcCtx.params.get(i)[0];
+                VarType paramType = (VarType) funcCtx.params.get(i)[1];
+                ValueWrapper argVal = this.coerce(evaluatedArgs.get(i), paramType, ctx.line, ctx.column);
+                this.symbolTable.declare(paramName, paramType, argVal, ctx.line, ctx.column);
+            }
+
+            for (ASTNode stmt : funcCtx.body.getStatements()) {
+                visit(stmt);
+            }
+
+            if (!funcCtx.isVoid()) {
+                this.addError(
+                        "La función \"" + ctx.name + "\" debe retornar un valor de tipo "
+                        + funcCtx.returnType,
+                        ctx.line, ctx.column
+                );
+            }
+            return this.defaultVoid;
+
+        } catch (ReturnException e) {
+            ValueWrapper returnVal = e.getValue();
+            if (funcCtx.isVoid()) {
+                return this.defaultVoid;
+            }
+            // Validar tipo de retorno
+            returnVal = this.coerce(returnVal, funcCtx.returnType, ctx.line, ctx.column);
+            return returnVal;
+
+        } finally {
+            this.symbolTable.popScope();
+        }
     }
 
     @Override

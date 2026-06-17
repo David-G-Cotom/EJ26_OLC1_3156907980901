@@ -30,6 +30,8 @@ public interface Visitor<T> {
 
     T visit(Unary.Context ctx);
 
+    T visit(UserFuncCall.Context ctx);
+
     T visit(Assign.Context ctx);
 
     T visit(Block.Context ctx);

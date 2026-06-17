@@ -4,11 +4,13 @@
  */
 package com.mycompany.proyecto_compi1_vj26.symbols;
 
+import com.mycompany.proyecto_compi1_vj26.ast.statements.FuncDecl;
 import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
 import com.mycompany.proyecto_compi1_vj26.models.ErrorType;
 import com.mycompany.proyecto_compi1_vj26.models.VarType;
 import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value.ValueWrapper;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class SymbolTable {
 
     private final List<LinkedHashMap<String, Symbol>> scopes;
+    private final HashMap<String, FuncDecl> functions;
 
     private int currentLevel;
     private boolean isBlockFor;
@@ -27,9 +30,14 @@ public class SymbolTable {
 
     public SymbolTable(List<ErrorReport> semanticErrors) {
         this.scopes = new ArrayList<>();
+        this.functions = new HashMap<>();
         this.semanticErrors = semanticErrors;
         this.currentLevel = -1;
         this.isBlockFor = false;
+    }
+
+    public HashMap<String, FuncDecl> getFunctions() {
+        return functions;
     }
 
     public int getCurrentLevel() {
@@ -78,6 +86,33 @@ public class SymbolTable {
 
         currentScope.put(name, new Symbol(name, type, value, this.currentLevel, line, column));
         return true;
+    }
+
+    public boolean declareFunction(String name, FuncDecl decl, int line, int column) {
+        if (this.functionExists(name)) {
+            this.addError(
+                    "La función \"" + name + "\" ya fue declarada",
+                    line, column
+            );
+            return false;
+        }
+        this.functions.put(name, decl);
+        return true;
+    }
+
+    public FuncDecl lookUpFunction(String name, int line, int column) {
+        FuncDecl decl = this.functions.get(name);
+        if (decl == null) {
+            this.addError(
+                    "La función \"" + name + "\" no ha sido declarada",
+                    line, column
+            );
+        }
+        return decl;
+    }
+    
+    public boolean functionExists(String name) {
+        return this.functions.containsKey(name);
     }
 
     private LinkedHashMap<String, Symbol> currentScope() {
@@ -137,6 +172,7 @@ public class SymbolTable {
 
     public void reset() {
         this.scopes.clear();
+        this.functions.clear();
         this.semanticErrors.clear();
         this.currentLevel = -1;
         this.isBlockFor = false;
