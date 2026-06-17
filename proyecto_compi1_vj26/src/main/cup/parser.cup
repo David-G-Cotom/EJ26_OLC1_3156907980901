@@ -238,7 +238,22 @@ continuar_else ::= sentencia_if:s {:
                     :} |
                     bloque_codigo:b {: RESULT = new Object[]{new ArrayList<>(), new ArrayList<>(), b}; :};
 
-sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :} |
+sentencia_switch ::= SWITCH:s expr:e LLAVE_ABIERTO bloque_switch:bc LLAVE_CERRADO {:
+                            List<ASTNode> caseExprs = new ArrayList<>();
+                            List<List<ASTNode>> caseBodies = new ArrayList<>();
+                            List<ASTNode> defaultBody = null;
+                            for (Object item : bc) {
+                                Object[] pair = (Object[]) item;
+                                if (pair[0] == null) {
+                                    // es el default
+                                    defaultBody = (List<ASTNode>) pair[1];
+                                } else {
+                                    caseExprs.add((ASTNode) pair[0]);
+                                    caseBodies.add((List<ASTNode>) pair[1]);
+                                }
+                            }
+                            RESULT = new Switch(e, caseExprs, caseBodies, defaultBody, sleft, sright);
+                        :} |
                         SWITCH error LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :};
 
 bloque_switch ::= bloque_switch:b caso_switch:c {:

@@ -6,30 +6,16 @@ package com.mycompany.proyecto_compi1_vj26.visitor;
 
 import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.ProgramNode;
-import com.mycompany.proyecto_compi1_vj26.ast.expressions.Binary;
-import com.mycompany.proyecto_compi1_vj26.ast.expressions.FuncCall;
-import com.mycompany.proyecto_compi1_vj26.ast.expressions.Identifier;
-import com.mycompany.proyecto_compi1_vj26.ast.expressions.Literal;
-import com.mycompany.proyecto_compi1_vj26.ast.expressions.Unary;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.Assign;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.Block;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.Break;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.Continue;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.For;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.ForCond;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.FuncDecl;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.If;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.ImplicitAssign;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.ImplicitVarDecl;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.IncDec;
-import com.mycompany.proyecto_compi1_vj26.ast.statements.VarDecl;
+import com.mycompany.proyecto_compi1_vj26.ast.expressions.*;
+import com.mycompany.proyecto_compi1_vj26.ast.statements.*;
 
 /**
  *
  * @author david
+ * @param <T>
  */
 public interface Visitor<T> {
-    
+
     T visit(ASTNode node);
 
     T visit(ProgramNode.Context ctx);
@@ -65,6 +51,8 @@ public interface Visitor<T> {
     T visit(ImplicitVarDecl.Context ctx);
 
     T visit(IncDec.Context ctx);
+
+    T visit(Switch.Context ctx);
 
     T visit(VarDecl.Context ctx);
 

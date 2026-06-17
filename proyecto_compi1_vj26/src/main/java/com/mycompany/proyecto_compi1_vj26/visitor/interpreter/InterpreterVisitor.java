@@ -8,9 +8,7 @@ import com.mycompany.proyecto_compi1_vj26.ast.ASTNode;
 import com.mycompany.proyecto_compi1_vj26.ast.ProgramNode;
 import com.mycompany.proyecto_compi1_vj26.ast.expressions.*;
 import com.mycompany.proyecto_compi1_vj26.ast.statements.*;
-import com.mycompany.proyecto_compi1_vj26.exceptions.BreakException;
-import com.mycompany.proyecto_compi1_vj26.exceptions.ContinueException;
-import com.mycompany.proyecto_compi1_vj26.exceptions.ReturnException;
+import com.mycompany.proyecto_compi1_vj26.exceptions.*;
 import com.mycompany.proyecto_compi1_vj26.models.*;
 import com.mycompany.proyecto_compi1_vj26.symbols.*;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
@@ -487,6 +485,51 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(Switch.Context ctx) {
+        ValueWrapper switchVal = visit(ctx.condition);
+
+        this.loopDepth++;
+        try {
+            for (int i = 0; i < ctx.caseExprs.size(); i++) {
+                ValueWrapper caseVal = visit(ctx.caseExprs.get(i));
+                ValueWrapper match = this.applyEquality(
+                        switchVal, BinaryOperator.IGUALDAD, caseVal,
+                        ctx.line, ctx.column);
+
+                if (match instanceof BoolValue b && b.value()) {
+                    this.symbolTable.pushScope();
+                    try {
+                        for (ASTNode stmt : ctx.caseBodies.get(i)) {
+                            visit(stmt);
+                        }
+                    } catch (BreakException ignored) {
+                        // break explícito dentro del case -> sale del switch
+                    } finally {
+                        this.symbolTable.popScope();
+                    }
+                    return this.defaultVoid; // break implícito: no evalúa más cases
+                }
+            }
+
+            if (ctx.hasDefault()) {
+                this.symbolTable.pushScope();
+                try {
+                    for (ASTNode stmt : ctx.defaultBody) {
+                        visit(stmt);
+                    }
+                } catch (BreakException ignored) {
+                    // break explícito en default
+                } finally {
+                    this.symbolTable.popScope();
+                }
+            }
+        } finally {
+            this.loopDepth--;
+        }
+        return this.defaultVoid;
+    }
+
+    @Override
     public ValueWrapper visit(VarDecl.Context ctx) {
         ValueWrapper value;
         if (ctx.hasInitValue()) {
@@ -510,7 +553,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     yield value;
                 }
                 if (value instanceof CharValue c) {
-                    yield new IntValue(c.value(), c.line(), c.column()); // rune → int
+                    yield new IntValue(c.value(), c.line(), c.column()); // rune -> int
                 }
                 this.addError("No se puede asignar " + value.getType() + " a una variable int",
                         line, col);
@@ -521,7 +564,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     yield value;
                 }
                 if (value instanceof IntValue i) {
-                    yield new DoubleValue(Integer.valueOf(i.value()).doubleValue(), i.line(), i.column()); // int → float64 implicito
+                    yield new DoubleValue(Integer.valueOf(i.value()).doubleValue(), i.line(), i.column()); // int -> float64 implicito
                 }
                 this.addError("No se puede asignar " + value.getType() + " a una variable float64",
                         line, col);
