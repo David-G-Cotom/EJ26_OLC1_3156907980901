@@ -15,7 +15,10 @@ public enum FuncName {
     STRCONV_ATOI("strconv.Atoi"),
     STRCONV_PARSE_FLOAT("strconv.ParseFloat"),
     REFLECT_TYPE_OF("reflect.TypeOf"),
-    ID("");
+    APPEND("append"),
+    LEN("len"),
+    SLICES_INDEX("slices.Index"),
+    STRINGS_JOIN("strings.Join");
 
     private String name;
 

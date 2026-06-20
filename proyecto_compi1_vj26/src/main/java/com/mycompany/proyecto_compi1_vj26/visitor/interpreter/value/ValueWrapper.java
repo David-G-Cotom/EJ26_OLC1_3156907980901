@@ -8,7 +8,7 @@ package com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value;
  *
  * @author david
  */
-public sealed interface ValueWrapper permits IntValue, DoubleValue, StringValue, BoolValue, CharValue, NullValue, VoidValue {
+public sealed interface ValueWrapper permits IntValue, DoubleValue, StringValue, BoolValue, CharValue, NullValue, VoidValue, SliceValue {
 
     int line();
 

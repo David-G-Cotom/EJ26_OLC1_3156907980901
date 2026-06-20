@@ -122,7 +122,6 @@ non terminal ASTNode definicion;    // null o expression
 
 non terminal ASTNode sentencia_if;
 non terminal Object[] fin_if, continuar_else;   // [List<elseIfConds>, List<elseIfBlocks>, BlockNode {:  :} | null]
-non terminal List lista_else_if;    // List de Object[]{cond, block}
 non terminal ASTNode sentencia_for;
 non terminal ASTNode[] condicion_for;   // [init, cond, inc] -> algunos pueden ser null
 non terminal ASTNode transferencia;
@@ -132,7 +131,7 @@ non terminal List bloque_switch;
 non terminal Object[] caso_switch;
 
 non terminal ASTNode expr;
-non terminal ASTNode expr_or, expr_and, expr_not, expr_rel;
+non terminal ASTNode expr_and, expr_not, expr_rel;
 non terminal ASTNode expr_add, expr_mul, expr_mod;
 non terminal ASTNode expr_unary, expr_primary;
 
@@ -141,13 +140,16 @@ non terminal List<ASTNode> args_println;
 
 non terminal ASTNode fmt_println, strconv_atoi, strconv_parse_float, reflect_type_of;
 non terminal struct;
-non terminal funcion_slice, slices_index, strings_join, len, append;
+non terminal ASTNode funcion_slice, slices_index, strings_join, len, append;
 non terminal fin_llave;
 
 non terminal List<Object[]> lista_params;
 non terminal Object[] param;
 non terminal FuncDecl funcion_usuario;
 non terminal List<FuncDecl> declaraciones_globales;
+
+non terminal ASTNode l_value;
+non terminal ASTNode llamada_funcion;
 
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
@@ -163,7 +165,7 @@ precedence right UMINUS;
 /***************************************** GRAMMAR *****************************************/
 start with inicio;
 
-inicio ::= declaraciones_globales:dg1 funcion_main:f declaraciones_globales:dg2 fin_llave
+inicio ::= declaraciones_globales:dg1 funcion_main:f declaraciones_globales:dg2
             {:
                 List<FuncDecl> all = new ArrayList<>(dg1);
                 all.addAll(dg2);
@@ -171,7 +173,7 @@ inicio ::= declaraciones_globales:dg1 funcion_main:f declaraciones_globales:dg2 
             :} |
             error fin_llave {: RESULT = null; :};
 
-declaraciones_globales ::= declaraciones_globales:d funcion_usuario:f {:
+declaraciones_globales ::= declaraciones_globales:d funcion_usuario:f fin_llave {:
                                 d.add(f);
                                 RESULT = d;
                             :} |
@@ -181,9 +183,9 @@ declaraciones_globales ::= declaraciones_globales:d funcion_usuario:f {:
 
 fin_llave ::= PUNTO_COMA | /* empty */;
 
-funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b
+funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b fin_llave
                     {: RESULT = new FuncDecl("main", new ArrayList<>(), null, b, bleft, bright); :} |
-                FUNC MAIN error bloque_codigo:b
+                FUNC MAIN error bloque_codigo:b fin_llave
                     {: RESULT = new FuncDecl("main", new ArrayList<>(), null, b, bleft, bright); :};
 
 funcion_usuario ::= FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
@@ -228,6 +230,7 @@ contenido ::= contenido:c instruccion:i {:
 
 instruccion ::= variable:v PUNTO_COMA {: RESULT = v; :} |
                 asignacion:a PUNTO_COMA {: RESULT = a; :} |
+                llamada_funcion:lf PUNTO_COMA {: RESULT = lf; :} |
                 funcion_embebida:f PUNTO_COMA {: RESULT = f; :} |
                 bloque_codigo:b fin_llave {: RESULT = b; :} |
                 sentencia_if:s fin_llave {: RESULT = s; :} |
@@ -245,14 +248,42 @@ tipo_dato ::= INT {: RESULT = VarType.INT; :} |
                 FLOAT {: RESULT = VarType.FLOAT; :} |
                 STRING {: RESULT = VarType.STRING; :} |
                 BOOL {: RESULT = VarType.BOOL; :} |
-                RUNE {: RESULT = VarType.RUNE; :};
+                RUNE {: RESULT = VarType.RUNE; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO INT {: RESULT = VarType.SLICE_INT; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO FLOAT {: RESULT = VarType.SLICE_FLOAT; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO STRING {: RESULT = VarType.SLICE_STRING; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO BOOL {: RESULT = VarType.SLICE_BOOL; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO RUNE {: RESULT = VarType.SLICE_RUNE; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO INT {: RESULT = VarType.SLICE_SLICE_INT; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO FLOAT {: RESULT = VarType.SLICE_SLICE_FLOAT; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO STRING {: RESULT = VarType.SLICE_SLICE_STRING;:} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO BOOL {: RESULT = VarType.SLICE_SLICE_BOOL; :} |
+                CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO RUNE {: RESULT = VarType.SLICE_SLICE_RUNE; :};
 
 definicion ::= IGUAL expr:e {: RESULT = e; :} |
                 /* empty */ {: RESULT = null; :};
 
-asignacion ::= ID:i SUMA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.SUMA_IMPLICITA, e, ileft, iright); :} |
-                ID:i RESTA_IMPLICITA expr:e {: RESULT = new ImplicitAssign(i, BinaryOperator.RESTA_IMPLICITA, e, ileft, iright); :} |
-                ID:i IGUAL expr:e {: RESULT = new Assign(i, e, ileft, iright); :};
+asignacion ::= l_value:lv SUMA_IMPLICITA expr:e {:
+                    if (lv instanceof Identifier i) {
+                        RESULT = new ImplicitAssign(i.getName(), BinaryOperator.SUMA_IMPLICITA, e, lvleft, lvright); 
+                    } else if (lv instanceof IndexAccess ia) {
+                        RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "+=", lvleft, lvright);
+                    }
+                :} |
+                l_value:lv RESTA_IMPLICITA expr:e {:
+                    if (lv instanceof Identifier i) {
+                        RESULT = new ImplicitAssign(i.getName(), BinaryOperator.RESTA_IMPLICITA, e, lvleft, lvright); 
+                    } else if (lv instanceof IndexAccess ia) {
+                        RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "-=", lvleft, lvright);
+                    }
+                :} |
+                l_value:lv IGUAL expr:e {:
+                    if (lv instanceof Identifier i) {
+                        RESULT = new Assign(i.getName(), e, lvleft, lvright); 
+                    } else if (lv instanceof IndexAccess ia) {
+                        RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "=", lvleft, lvright);
+                    }
+                :};
 
 inc_dec ::= ID:i INCREMENTO {: RESULT = new IncDec(i, "++", ileft, iright); :} |
             ID:i DECREMENTO {: RESULT = new IncDec(i, "--", ileft, iright); :};
@@ -329,12 +360,14 @@ sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
                             RESULT = new For(init, condition, increment, b, fleft, fright);
                         }
                     :} |
-                    FOR error bloque_codigo {: RESULT = null; :};
+                    FOR error bloque_codigo {: RESULT = null; :} |
+                    FOR:f ID:idx COMA ID:val IGUAL_IMPLICITO RANGE expr:it bloque_codigo:bc {:
+                        RESULT = new ForRange(idx, val, it, bc, fleft, fright);
+                    :};
 
 condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
                 variable:v PUNTO_COMA expr:e PUNTO_COMA inc_dec:i {: RESULT = new ASTNode[]{v, e, i}; :} |
-                variable:v PUNTO_COMA expr:e PUNTO_COMA asignacion:i {: RESULT = new ASTNode[]{v, e, i}; :} |
-                ID COMA ID IGUAL_IMPLICITO RANGE ID:i {: RESULT = null; :};
+                variable:v PUNTO_COMA expr:e PUNTO_COMA asignacion:i {: RESULT = new ASTNode[]{v, e, i}; :};
 
 transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |
                     CONTINUE:c PUNTO_COMA {: RESULT = new Continue(cleft, cright); :} |
@@ -348,18 +381,37 @@ transferencia ::= BREAK:b PUNTO_COMA {: RESULT = new Break(bleft, bright); :} |
                     BREAK error PUNTO_COMA {: RESULT = null; :} |
                     CONTINUE error PUNTO_COMA {: RESULT = null; :};
 
-funcion_slice ::= slices_index |
-                        strings_join |
-                        len |
-                        append;
+funcion_slice ::= slices_index:si {: RESULT = si; :} |
+                    strings_join:sj {: RESULT = sj; :} |
+                    len:l {: RESULT = l; :} |
+                    append:a {: RESULT = a; :};
 
-slices_index ::= SLICES_INDEX PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+slices_index ::= SLICES_INDEX PARENTESIS_ABIERTO expr:slice COMA expr:val PARENTESIS_CERRADO {:
+                    List<ASTNode> args = new ArrayList<>();
+                    args.add(slice);
+                    args.add(val);
+                    RESULT = new FuncCall(FuncName.SLICES_INDEX, args, sliceleft, sliceright);
+                :};
 
-strings_join ::= STRINGS_JOIN PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+strings_join ::= STRINGS_JOIN PARENTESIS_ABIERTO expr:slice COMA expr:sep PARENTESIS_CERRADO {:
+                    List<ASTNode> args = new ArrayList<>();
+                    args.add(slice);
+                    args.add(sep);
+                    RESULT = new FuncCall(FuncName.STRINGS_JOIN, args, sliceleft, sliceright);
+                :};
 
-len ::= LEN PARENTESIS_ABIERTO ID PARENTESIS_CERRADO;
+len ::= LEN PARENTESIS_ABIERTO expr:slice PARENTESIS_CERRADO {:
+            List<ASTNode> args = new ArrayList<>();
+            args.add(slice);
+            RESULT = new FuncCall(FuncName.LEN, args, sliceleft, sliceright);
+        :};
 
-append ::= APPEND PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO;
+append ::= APPEND PARENTESIS_ABIERTO expr:slice COMA expr:elmt PARENTESIS_CERRADO {:
+                List<ASTNode> args = new ArrayList<>();
+                args.add(slice);
+                args.add(elmt);
+                RESULT = new FuncCall(FuncName.APPEND, args, sliceleft, sliceright);
+            :};
 
 funcion_embebida ::= fmt_println:f {: RESULT = f; :} |
                         strconv_atoi:s {: RESULT = s; :} |
@@ -403,6 +455,12 @@ reflect_type_of ::= REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRA
                     :} |
                     REFLECT_TYPE_OF PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
+l_value ::= ID:i {: RESULT = new Identifier(i, ileft, iright); :}
+          | l_value:base CORCHETE_ABIERTO expr:i CORCHETE_CERRADO {: RESULT = new IndexAccess(base, i, baseleft, baseright); :};
+
+llamada_funcion ::= ID:name PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {: RESULT = new UserFuncCall(name, a, nameleft, nameright); :}
+                  | ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new UserFuncCall(name, new ArrayList<>(), nameleft, nameright); :};
+
 expr ::= expr:l OR expr:r {: RESULT = new Binary(l, BinaryOperator.OR, r, lleft, lright); :} |
             expr_and:e {: RESULT = e; :};
 
@@ -437,18 +495,16 @@ expr_unary ::= RESTA:r expr_unary:e {: RESULT = new Unary("-", e, rleft, rright)
 expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} |
         NUMERO_DECIMAL:v {: RESULT = new Literal(new DoubleValue(v, vleft, vright), vleft, vright); :} |
         NUMERO_ENTERO:v {: RESULT = new Literal(new IntValue(v, vleft, vright), vleft, vright); :} |
-        ID:i {: RESULT = new Identifier(i, ileft, iright); :} |
         TEXTO:v {: RESULT = new Literal(new StringValue(v, vleft, vright), vleft, vright); :} |
         CHARACTER:v {: RESULT = new Literal(new CharValue(v, vleft, vright), vleft, vright); :} |
         TRUE:v {: RESULT = new Literal(new BoolValue(true, vleft, vright), vleft, vright); :} |
         FALSE:v {: RESULT = new Literal(new BoolValue(false, vleft, vright), vleft, vright); :} |
         NIL:v {: RESULT = new Literal(new NullValue(vleft, vright), vleft, vright); :} |
-        ID:name PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {:
-            RESULT = new UserFuncCall(name, a, nameleft, nameright);
-        :} |
-        ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO {:
-            RESULT = new UserFuncCall(name, new ArrayList<>(), nameleft, nameright);
-        :} |
-        funcion_slice {: RESULT = null; :} |
+        l_value:lv {: RESULT = lv; :} |
+        llamada_funcion:f {: RESULT = f; :} |
+        funcion_slice:fs {: RESULT = fs; :} |
         funcion_embebida:f {: RESULT = f; :} |
-        PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
+        PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :} |
+        tipo_dato:t LLAVE_ABIERTO args_println:elems fin_llave LLAVE_CERRADO {:
+            RESULT = new SliceLiteral(t, elems, tleft, tright);
+        :};

@@ -26,7 +26,11 @@ public interface Visitor<T> {
 
     T visit(Identifier.Context ctx);
 
+    T visit(IndexAccess.Context ctx);
+
     T visit(Literal.Context ctx);
+
+    T visit(SliceLiteral.Context ctx);
 
     T visit(Unary.Context ctx);
 
@@ -44,6 +48,8 @@ public interface Visitor<T> {
 
     T visit(ForCond.Context ctx);
 
+    T visit(ForRange.Context ctx);
+
     T visit(FuncDecl.Context ctx);
 
     T visit(If.Context ctx);
@@ -53,6 +59,8 @@ public interface Visitor<T> {
     T visit(ImplicitVarDecl.Context ctx);
 
     T visit(IncDec.Context ctx);
+
+    T visit(IndexAssign.Context ctx);
 
     T visit(Switch.Context ctx);
 

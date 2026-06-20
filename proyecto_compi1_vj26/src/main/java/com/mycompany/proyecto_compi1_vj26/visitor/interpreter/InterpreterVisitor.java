@@ -166,9 +166,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 value = this.evaluate(ctx); // usado como expresion RETORNAR
             case FuncName.REFLECT_TYPE_OF ->
                 value = this.evaluate(ctx); // usado como expresion RETORNAR
-            case FuncName.ID ->
-                this.addError("Funcion desconocida: \"" + ctx.functionName.getName() + "\"",
-                        ctx.line, ctx.column);
+            case FuncName.APPEND ->
+                value = this.evaluate(ctx);
+            case FuncName.LEN ->
+                value = this.evaluate(ctx);
+            case FuncName.SLICES_INDEX ->
+                value = this.evaluate(ctx);
+            case FuncName.STRINGS_JOIN ->
+                value = this.evaluate(ctx);
         }
         if (!(value instanceof NullValue)) {
             return value;
@@ -230,13 +235,96 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 ValueWrapper arg = visit(ctx.args.get(0));
                 yield new StringValue(arg.getType(), arg.line(), arg.column());
             }
-            case FuncName.ID -> {
-                this.addError("Funcion desconocida: \"" + ctx.functionName.getName() + "\"",
-                        ctx.line, ctx.column);
-                yield new NullValue(ctx.line, ctx.column);
-            }
             case FuncName.RETURN -> {
                 yield new NullValue(ctx.line, ctx.column);
+            }
+            case APPEND -> {
+                if (ctx.args.size() != 2) {
+                    this.addError("append() requiere exactamente 2 argumentos", ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper sliceVal = visit(ctx.args.get(0));
+                ValueWrapper elem = visit(ctx.args.get(1));
+                if (!(sliceVal instanceof SliceValue sv)) {
+                    this.addError("El primer argumento de append() debe ser un slice",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                // append devuelve un nuevo SliceValue
+                List<ValueWrapper> newElems = new ArrayList<>(sv.getElements());
+                newElems.add(elem);
+                yield new SliceValue(newElems, sv.getSliceType(), ctx.line, ctx.column);
+            }
+
+            case LEN -> {
+                if (ctx.args.size() != 1) {
+                    this.addError("len() requiere exactamente 1 argumento", ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper target = visit(ctx.args.get(0));
+                switch (target) {
+                    case SliceValue sv -> {
+                        yield new IntValue(sv.size(), ctx.line, ctx.column);
+                    }
+                    case StringValue str -> {
+                        yield new IntValue(str.value().length(), ctx.line, ctx.column);
+                    }
+                    default -> {
+                        this.addError("len() solo aplica a slices y strings", ctx.line, ctx.column);
+                        yield new NullValue(ctx.line, ctx.column);
+                    }
+                }
+            }
+
+            case SLICES_INDEX -> {
+                if (ctx.args.size() != 2) {
+                    this.addError("slices.Index() requiere exactamente 2 argumentos",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper val = visit(ctx.args.get(0));
+                if (!(val instanceof SliceValue sv)) {
+                    this.addError("El primer argumento de slices.Index() debe ser un slice",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper target = visit(ctx.args.get(1));
+                for (int i = 0; i < sv.size(); i++) {
+                    ValueWrapper cmp = applyEquality(sv.getElement(i), BinaryOperator.IGUALDAD,
+                            target, ctx.line, ctx.column);
+                    if (cmp instanceof BoolValue bv && bv.value()) {
+                        yield new IntValue(i, ctx.line, ctx.column);
+                    }
+                }
+                yield new IntValue(-1, ctx.line, ctx.column); // no encontrado
+            }
+
+            case STRINGS_JOIN -> {
+                if (ctx.args.size() != 2) {
+                    this.addError("strings.Join() requiere exactamente 2 argumentos",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper val = visit(ctx.args.get(0));
+                if (!(val instanceof SliceValue sv)) {
+                    this.addError("El primer argumento de strings.Join() debe ser un slice",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                ValueWrapper str = visit(ctx.args.get(1));
+                if (!(str instanceof StringValue sep)) {
+                    this.addError("El segundo argumento de strings.Join() debe ser string",
+                            ctx.line, ctx.column);
+                    yield new NullValue(ctx.line, ctx.column);
+                }
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < sv.size(); i++) {
+                    if (i > 0) {
+                        sb.append(sep.value());
+                    }
+                    sb.append(sv.getElement(i).toString());
+                }
+                yield new StringValue(sb.toString(), ctx.line, ctx.column);
             }
         };
     }
@@ -249,8 +337,43 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(IndexAccess.Context ctx) {
+        ValueWrapper target = visit(ctx.slice);
+        ValueWrapper idx = visit(ctx.index);
+
+        if (!(target instanceof SliceValue sv)) {
+            this.addError("Se intento indexar un valor que no es un slice",
+                    ctx.line, ctx.column);
+            return new NullValue(ctx.line, ctx.column);
+        }
+        if (!(idx instanceof IntValue iv)) {
+            this.addError("El indice de un slice debe ser de tipo int",
+                    ctx.line, ctx.column);
+            return new NullValue(ctx.line, ctx.column);
+        }
+        int i = iv.value();
+        if (i < 0 || i >= sv.size()) {
+            this.addError("Índice " + i + " fuera de rango (tamaño " + sv.size() + ")",
+                    ctx.line, ctx.column);
+            return new NullValue(ctx.line, ctx.column);
+        }
+        return sv.getElement(i);
+    }
+
+    @Override
     public ValueWrapper visit(Literal.Context ctx) {
         return ctx.value;
+    }
+
+    @Override
+    public ValueWrapper visit(SliceLiteral.Context ctx) {
+        List<ValueWrapper> elements = new ArrayList<>();
+
+        for (ASTNode elem : ctx.elements) {
+            elements.add(visit(elem));
+        }
+
+        return new SliceValue(elements, ctx.sliceType, ctx.line, ctx.column);
     }
 
     @Override
@@ -296,7 +419,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         // Validar cantidad de argumentos
         if (ctx.args.size() != funcCtx.params.size()) {
             this.addError(
-                    "La función \"" + ctx.name + "\" espera " + funcCtx.params.size()
+                    "La funcion \"" + ctx.name + "\" espera " + funcCtx.params.size()
                     + " argumento(s), se recibieron " + ctx.args.size(),
                     ctx.line, ctx.column
             );
@@ -309,7 +432,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             evaluatedArgs.add(visit(arg));
         }
 
-        // Crear scope para la función y declarar parámetros
+        // Crear scope para la funcion y declarar parametros
         this.symbolTable.pushScope();
         try {
             for (int i = 0; i < funcCtx.params.size(); i++) {
@@ -325,7 +448,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
             if (!funcCtx.isVoid()) {
                 this.addError(
-                        "La función \"" + ctx.name + "\" debe retornar un valor de tipo "
+                        "La funcion \"" + ctx.name + "\" debe retornar un valor de tipo "
                         + funcCtx.returnType,
                         ctx.line, ctx.column
                 );
@@ -462,6 +585,45 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(ForRange.Context ctx) {
+        ValueWrapper iterable = visit(ctx.iterable);
+
+        if (!(iterable instanceof SliceValue sv)) {
+            this.addError("'range' solo puede usarse con slices",
+                    ctx.line, ctx.column);
+            return this.defaultVoid;
+        }
+
+        this.loopDepth++;
+        try {
+            for (int i = 0; i < sv.size(); i++) {
+                this.symbolTable.pushScope();
+                try {
+                    VarType elemType = sv.getSliceType().elementType();
+                    this.symbolTable.declare(ctx.index, VarType.INT,
+                            new IntValue(i, ctx.line, ctx.column),
+                            ctx.line, ctx.column);
+                    this.symbolTable.declare(ctx.value, elemType,
+                            sv.getElement(i), ctx.line, ctx.column);
+
+                    for (ASTNode stmt : ctx.body.getStatements()) {
+                        visit(stmt);
+                    }
+                } catch (ContinueException e) {
+                    // continuar a la siguiente iteracion
+                } finally {
+                    this.symbolTable.popScope();
+                }
+            }
+        } catch (BreakException e) {
+            // salir del for range
+        } finally {
+            this.loopDepth--;
+        }
+        return this.defaultVoid;
+    }
+
+    @Override
     public ValueWrapper visit(FuncDecl.Context ctx) {
         this.symbolTable.pushScope();
         try {
@@ -554,6 +716,44 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(IndexAssign.Context ctx) {
+        ValueWrapper target = visit(ctx.slice);
+        ValueWrapper idx = visit(ctx.index);
+        ValueWrapper val = visit(ctx.value);
+
+        if (!(target instanceof SliceValue sv)) {
+            this.addError("Se intento asignar a un indice de un valor que no es un slice",
+                    ctx.line, ctx.column);
+            return this.defaultVoid;
+        }
+        if (!(idx instanceof IntValue iv)) {
+            this.addError("El indice de un slice debe ser de tipo int",
+                    ctx.line, ctx.column);
+            return this.defaultVoid;
+        }
+        int i = iv.value();
+        if (i < 0 || i >= sv.size()) {
+            this.addError("Índice " + i + " fuera de rango (tamaño " + sv.size() + ")",
+                    ctx.line, ctx.column);
+            return this.defaultVoid;
+        }
+
+        ValueWrapper current = sv.getElement(i);
+        ValueWrapper newVal = switch (ctx.operator) {
+            case "=" ->
+                val;
+            case "+=" ->
+                applyArithmetic(current, BinaryOperator.SUMA, val, ctx.line, ctx.column);
+            case "-=" ->
+                applyArithmetic(current, BinaryOperator.RESTA, val, ctx.line, ctx.column);
+            default ->
+                val;
+        };
+        sv.setElement(i, newVal);
+        return this.defaultVoid;
+    }
+
+    @Override
     public ValueWrapper visit(Switch.Context ctx) {
         ValueWrapper switchVal = visit(ctx.condition);
 
@@ -572,11 +772,11 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                             visit(stmt);
                         }
                     } catch (BreakException ignored) {
-                        // break explícito dentro del case -> sale del switch
+                        // break explicito dentro del case -> sale del switch
                     } finally {
                         this.symbolTable.popScope();
                     }
-                    return this.defaultVoid; // break implícito: no evalúa más cases
+                    return this.defaultVoid; // break implicito: no evalua mas cases
                 }
             }
 
@@ -587,7 +787,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                         visit(stmt);
                     }
                 } catch (BreakException ignored) {
-                    // break explícito en default
+                    // break explicito en default
                 } finally {
                     this.symbolTable.popScope();
                 }
@@ -668,6 +868,15 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
             case VarType.NIL ->
                 value;
+            default -> {
+                if (value instanceof SliceValue) {
+                    yield value;
+                }
+                this.addError("No se puede asignar " + value.getType() + " a una variable slice",
+                        line, col);
+                yield new NullValue(line, col);
+            }
+
         };
     }
 
@@ -690,6 +899,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         if (value instanceof CharValue) {
             return VarType.RUNE;
         }
+        if (value instanceof SliceValue sv) {
+            return sv.getSliceType();
+        }
         this.addError("No se puede inferir el tipo del valor: " + value.getType(), line, col);
         return VarType.NIL;
     }
@@ -707,6 +919,8 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             case VarType.RUNE ->
                 new CharValue('\0', line, col);
             case VarType.NIL ->
+                new NullValue(line, col);
+            default ->
                 new NullValue(line, col);
         };
     }
@@ -898,6 +1112,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         }
         if (val instanceof CharValue c) {
             return (int) c.value() + "";
+        }
+        if (val instanceof SliceValue sv) {
+            return sv.toString();
         }
         return String.valueOf(val);
     }
