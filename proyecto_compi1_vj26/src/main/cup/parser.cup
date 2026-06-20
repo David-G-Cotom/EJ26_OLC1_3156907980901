@@ -151,6 +151,10 @@ non terminal List<FuncDecl> declaraciones_globales;
 non terminal ASTNode l_value;
 non terminal ASTNode llamada_funcion;
 
+non terminal SliceLiteral literal_slice_anidado;
+non terminal List<ASTNode> lista_elementos_slice;
+non terminal ASTNode elemento_slice;
+
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
 precedence left AND;
@@ -505,6 +509,26 @@ expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} 
         funcion_slice:fs {: RESULT = fs; :} |
         funcion_embebida:f {: RESULT = f; :} |
         PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :} |
-        tipo_dato:t LLAVE_ABIERTO args_println:elems fin_llave LLAVE_CERRADO {:
+        tipo_dato:t LLAVE_ABIERTO lista_elementos_slice:elems fin_llave LLAVE_CERRADO {:
             RESULT = new SliceLiteral(t, elems, tleft, tright);
         :};
+
+literal_slice_anidado ::= LLAVE_ABIERTO:l lista_elementos_slice:elems fin_llave LLAVE_CERRADO {:
+                              RESULT = new SliceLiteral(null, elems, lleft, lright);
+                          :} |
+                          LLAVE_ABIERTO:l LLAVE_CERRADO {:
+                              RESULT = new SliceLiteral(null, new ArrayList<>(), lleft, lright);
+                          :};
+
+lista_elementos_slice ::= lista_elementos_slice:l COMA elemento_slice:e {:
+                              l.add(e);
+                              RESULT = l;
+                          :} |
+                          elemento_slice:e {:
+                              List<ASTNode> list = new ArrayList<>();
+                              list.add(e);
+                              RESULT = list;
+                          :};
+
+elemento_slice ::= expr:e {: RESULT = e; :} |
+                   literal_slice_anidado:s {: RESULT = s; :};

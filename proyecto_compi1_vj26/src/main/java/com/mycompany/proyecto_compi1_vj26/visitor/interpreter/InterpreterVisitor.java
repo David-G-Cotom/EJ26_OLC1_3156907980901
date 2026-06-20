@@ -367,13 +367,31 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(SliceLiteral.Context ctx) {
+        if (ctx.sliceType == null) {
+            this.addError("No se pudo inferir el tipo del slice anidado",
+                    ctx.line, ctx.column);
+            return new NullValue(ctx.line, ctx.column);
+        }
         List<ValueWrapper> elements = new ArrayList<>();
-
+        VarType elemType = ctx.sliceType.elementType();
         for (ASTNode elem : ctx.elements) {
-            elements.add(visit(elem));
+            elements.add(this.resolveAndVisitSliceElement(elem, elemType));
         }
 
         return new SliceValue(elements, ctx.sliceType, ctx.line, ctx.column);
+    }
+
+    private ValueWrapper resolveAndVisitSliceElement(ASTNode elem, VarType expectedType) {
+        if (expectedType.isSlice() && elem instanceof SliceLiteral sl) {
+            SliceLiteral typed = new SliceLiteral(
+                    expectedType,
+                    sl.getElements(),
+                    sl.getLine(),
+                    sl.getColumn()
+            );
+            return typed.accept(this);
+        }
+        return visit(elem);
     }
 
     @Override
