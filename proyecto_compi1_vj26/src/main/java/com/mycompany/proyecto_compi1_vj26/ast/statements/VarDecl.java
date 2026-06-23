@@ -18,12 +18,18 @@ public class VarDecl extends BaseNode {
     private final String name;
     private final VarType type;
     private final ASTNode initValue;    //puede ser null
+    private final String structTypeName;    // null salvo type == VarType.STRUCT
 
     public VarDecl(String name, VarType type, ASTNode initValue, int line, int column) {
+        this(name, type, initValue, null, line, column);
+    }
+
+    public VarDecl(String name, VarType type, ASTNode initValue, String structTypeName, int line, int column) {
         super(line, column);
         this.name = name;
         this.type = type;
         this.initValue = initValue;
+        this.structTypeName = structTypeName;
     }
 
     public String getName() {
@@ -38,8 +44,16 @@ public class VarDecl extends BaseNode {
         return initValue;
     }
 
+    public String getStructTypeName() {
+        return structTypeName;
+    }
+
     public boolean hasInitValue() {
         return this.initValue != null;
+    }
+
+    public boolean isStructType() {
+        return this.structTypeName != null;
     }
 
     public static class Context {
@@ -47,6 +61,7 @@ public class VarDecl extends BaseNode {
         public final String name;
         public final VarType type;
         public final ASTNode initValue;
+        public final String structTypeName;
         public final int line;
         public final int column;
 
@@ -54,12 +69,17 @@ public class VarDecl extends BaseNode {
             this.name = node.name;
             this.type = node.type;
             this.initValue = node.initValue;
+            this.structTypeName = node.structTypeName;
             this.line = node.getLine();
             this.column = node.getColumn();
         }
 
         public boolean hasInitValue() {
             return this.initValue != null;
+        }
+
+        public boolean isStructType() {
+            return this.structTypeName != null;
         }
 
     }

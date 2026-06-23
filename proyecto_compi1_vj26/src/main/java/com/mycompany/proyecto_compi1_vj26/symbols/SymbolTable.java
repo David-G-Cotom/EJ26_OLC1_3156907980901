@@ -5,6 +5,7 @@
 package com.mycompany.proyecto_compi1_vj26.symbols;
 
 import com.mycompany.proyecto_compi1_vj26.ast.statements.FuncDecl;
+import com.mycompany.proyecto_compi1_vj26.ast.statements.StructDecl;
 import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
 import com.mycompany.proyecto_compi1_vj26.models.ErrorType;
 import com.mycompany.proyecto_compi1_vj26.models.VarType;
@@ -22,6 +23,7 @@ public class SymbolTable {
 
     private final List<LinkedHashMap<String, Symbol>> scopes;
     private final HashMap<String, FuncDecl> functions;
+    private final HashMap<String, StructDecl> structs;
 
     private int currentLevel;
     private boolean isBlockFor;
@@ -31,6 +33,7 @@ public class SymbolTable {
     public SymbolTable(List<ErrorReport> semanticErrors) {
         this.scopes = new ArrayList<>();
         this.functions = new HashMap<>();
+        this.structs = new HashMap<>();
         this.semanticErrors = semanticErrors;
         this.currentLevel = -1;
         this.isBlockFor = false;
@@ -38,6 +41,10 @@ public class SymbolTable {
 
     public HashMap<String, FuncDecl> getFunctions() {
         return functions;
+    }
+
+    public HashMap<String, StructDecl> getStructs() {
+        return structs;
     }
 
     public int getCurrentLevel() {
@@ -88,6 +95,31 @@ public class SymbolTable {
         return true;
     }
 
+    public Symbol lookUp(String name, int line, int column) {
+        Symbol sym = null;
+        for (int i = this.scopes.size() - 1; i >= 0; i--) {
+            sym = this.scopes.get(i).get(name);
+            if (sym != null) {
+                break;
+            }
+        }
+        if (sym == null) {
+            this.addError("La variable \"" + name + "\" no ha sido declarada", line, column);
+        }
+        return sym;
+    }
+
+    public boolean existsInCurrentScope(String name) {
+        return this.currentScope().containsKey(name);
+    }
+
+    private LinkedHashMap<String, Symbol> currentScope() {
+        if (this.scopes.isEmpty()) {
+            throw new IllegalStateException("No hay ningún scope abierto.");
+        }
+        return this.scopes.get(this.scopes.size() - 1);
+    }
+
     public boolean declareFunction(String name, FuncDecl decl, int line, int column) {
         if (this.functionExists(name)) {
             this.addError(
@@ -110,40 +142,36 @@ public class SymbolTable {
         }
         return decl;
     }
-    
+
     public boolean functionExists(String name) {
         return this.functions.containsKey(name);
     }
 
-    private LinkedHashMap<String, Symbol> currentScope() {
-        if (this.scopes.isEmpty()) {
-            throw new IllegalStateException("No hay ningún scope abierto.");
+    public boolean declareStruct(String name, StructDecl decl, int line, int column) {
+        if (this.structs.containsKey(name)) {
+            this.addError(
+                    "El struct \"" + name + "\" ya fue declarado",
+                    line, column
+            );
+            return false;
         }
-        return this.scopes.get(this.scopes.size() - 1);
+        this.structs.put(name, decl);
+        return true;
     }
 
-    private void addError(String description, int line, int column) {
-        this.semanticErrors.add(new ErrorReport(
-                description, line, column, ErrorType.SEMANTICO
-        ));
+    public StructDecl lookUpStruct(String name, int line, int column) {
+        StructDecl decl = this.structs.get(name);
+        if (decl == null) {
+            this.addError(
+                    "El struct \"" + name + "\" no ha sido declarado",
+                    line, column
+            );
+        }
+        return decl;
     }
 
-    public Symbol lookUp(String name, int line, int column) {
-        Symbol sym = null;
-        for (int i = this.scopes.size() - 1; i >= 0; i--) {
-            sym = this.scopes.get(i).get(name);
-            if (sym != null) {
-                break;
-            }
-        }
-        if (sym == null) {
-            this.addError("La variable \"" + name + "\" no ha sido declarada", line, column);
-        }
-        return sym;
-    }
-
-    public boolean existsInCurrentScope(String name) {
-        return this.currentScope().containsKey(name);
+    public boolean structExists(String name) {
+        return this.structs.containsKey(name);
     }
 
     public boolean assign(String name, ValueWrapper newValue, int line, int column) {
@@ -156,6 +184,12 @@ public class SymbolTable {
         }
         this.addError("La variable \"" + name + "\" no ha sido declarada", line, column);
         return false;
+    }
+
+    private void addError(String description, int line, int column) {
+        this.semanticErrors.add(new ErrorReport(
+                description, line, column, ErrorType.SEMANTICO
+        ));
     }
 
     public boolean hasErrors() {

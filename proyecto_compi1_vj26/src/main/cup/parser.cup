@@ -139,14 +139,13 @@ non terminal ASTNode funcion_embebida;
 non terminal List<ASTNode> args_println;
 
 non terminal ASTNode fmt_println, strconv_atoi, strconv_parse_float, reflect_type_of;
-non terminal struct;
 non terminal ASTNode funcion_slice, slices_index, strings_join, len, append;
 non terminal fin_llave;
 
 non terminal List<Object[]> lista_params;
 non terminal Object[] param;
 non terminal FuncDecl funcion_usuario;
-non terminal List<FuncDecl> declaraciones_globales;
+non terminal Object[] declaraciones_globales;
 
 non terminal ASTNode l_value;
 non terminal ASTNode llamada_funcion;
@@ -154,6 +153,13 @@ non terminal ASTNode llamada_funcion;
 non terminal SliceLiteral literal_slice_anidado;
 non terminal List<ASTNode> lista_elementos_slice;
 non terminal ASTNode elemento_slice;
+
+non terminal StructDecl struct;
+non terminal List<Object[]> lista_campos_struct;
+non terminal Object[] campo_struct;
+non terminal StructLiteral literal_struct;
+non terminal List<Object[]> lista_valores_struct;
+non terminal Object[] valor_campo_struct;
 
 /***************************************** PRECEDENCES *****************************************/
 precedence left OR;
@@ -171,18 +177,24 @@ start with inicio;
 
 inicio ::= declaraciones_globales:dg1 funcion_main:f declaraciones_globales:dg2
             {:
-                List<FuncDecl> all = new ArrayList<>(dg1);
-                all.addAll(dg2);
-                RESULT = new ProgramNode(f, all, fleft, fright);
+                List<FuncDecl> funcs = new ArrayList<>((List<FuncDecl>) dg1[0]);
+                funcs.addAll((List<FuncDecl>) dg2[0]);
+                List<StructDecl> structs = new ArrayList<>((List<StructDecl>) dg1[1]);
+                structs.addAll((List<StructDecl>) dg2[1]);
+                RESULT = new ProgramNode(f, funcs, structs, fleft, fright);
             :} |
             error fin_llave {: RESULT = null; :};
 
 declaraciones_globales ::= declaraciones_globales:d funcion_usuario:f fin_llave {:
-                                d.add(f);
+                                ((List<FuncDecl>) d[0]).add(f);
+                                RESULT = d;
+                            :} |
+                            declaraciones_globales:d struct:s {:
+                                ((List<StructDecl>) d[1]).add(s);
                                 RESULT = d;
                             :} |
                             /* empty */ {:
-                                RESULT = new ArrayList<>();
+                                RESULT = new Object[]{ new ArrayList<FuncDecl>(), new ArrayList<StructDecl>() };
                             :};
 
 fin_llave ::= PUNTO_COMA | /* empty */;
@@ -195,11 +207,21 @@ funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b
 funcion_usuario ::= FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
                         RESULT = new FuncDecl(name, p, ret, b, fleft, fright);
                     :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO ID:ret bloque_codigo:b {:
+                        VarType type = VarType.STRUCT;
+                        type.setType(ret);
+                        RESULT = new FuncDecl(name, p, type, b, fleft, fright);
+                    :} |
                     FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_CERRADO bloque_codigo:b {:
                         RESULT = new FuncDecl(name, p, null, b, fleft, fright);
                     :} |
                     FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
                         RESULT = new FuncDecl(name, new ArrayList<>(), ret, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO ID:ret bloque_codigo:b {:
+                        VarType type = VarType.STRUCT;
+                        type.setType(ret);
+                        RESULT = new FuncDecl(name, new ArrayList<>(), type, b, fleft, fright);
                     :} |
                     FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b {:
                         RESULT = new FuncDecl(name, new ArrayList<>(), null, b, fleft, fright);
@@ -216,7 +238,36 @@ lista_params ::= lista_params:l COMA param:p {:
                     RESULT = list;
                 :};
 
-param ::= ID:name tipo_dato:t {: RESULT = new Object[]{name, t}; :};
+param ::= ID:name tipo_dato:t {: RESULT = new Object[]{name, t}; :} |
+            ID:name ID:t {:
+                VarType type = VarType.STRUCT;
+                type.setType(t);
+                RESULT = new Object[]{name, type};
+            :};
+
+struct ::= STRUCT:s ID:name LLAVE_ABIERTO lista_campos_struct:campos LLAVE_CERRADO fin_llave {:
+                RESULT = new StructDecl(name, campos, sleft, sright);
+            :} |
+            STRUCT error LLAVE_CERRADO fin_llave {: RESULT = null; :};
+
+lista_campos_struct ::= lista_campos_struct:l campo_struct:c {:
+                            l.add(c);
+                            RESULT = l;
+                        :} |
+                        campo_struct:c {:
+                            List<Object[]> list = new ArrayList<>();
+                            list.add(c);
+                            RESULT = list;
+                        :};
+
+campo_struct ::= tipo_dato:t ID:name PUNTO_COMA {:
+                    RESULT = new Object[]{name, t, null};
+                :} |
+                ID:structTypeName ID:name PUNTO_COMA {:
+                    VarType type = VarType.STRUCT;
+                    type.setType(structTypeName);
+                    RESULT = new Object[]{name, type, structTypeName};
+                :};
 
 bloque_codigo ::= LLAVE_ABIERTO:l contenido:c LLAVE_CERRADO {: RESULT = new Block(c, lleft, lright); :} |
                     LLAVE_ABIERTO:l LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :} |
@@ -242,10 +293,27 @@ instruccion ::= variable:v PUNTO_COMA {: RESULT = v; :} |
                 sentencia_for:s fin_llave {: RESULT = s; :} |
                 inc_dec:i PUNTO_COMA {: RESULT = i; :} |
                 transferencia:t {: RESULT = t; :} |
-                struct {: RESULT = null; :} |
                 error PUNTO_COMA {: RESULT = null; :};
 
 variable ::= VAR:v ID:i tipo_dato:t definicion:d {: RESULT = new VarDecl(i, t, d, vleft, vright); :} |
+            VAR:v ID:i ID:structName definicion:d {:
+                if (d instanceof StructLiteral sl) {
+                    sl.setStructName(structName);
+                    VarType type = VarType.STRUCT;
+                    type.setType(structName);
+                    RESULT = new VarDecl(i, type, sl, structName, vleft, vright);
+                }
+                RESULT = new VarDecl(i, VarType.STRUCT, d, structName, vleft, vright);
+            :} |
+            ID:structName ID:i definicion:d {:
+                if (d instanceof StructLiteral sl) {
+                    sl.setStructName(structName);
+                    VarType type = VarType.STRUCT;
+                    type.setType(structName);
+                    RESULT = new VarDecl(i, type, sl, structName, ileft, iright);
+                }
+                RESULT = new VarDecl(i, VarType.STRUCT, d, structName, ileft, iright);
+            :} |
             ID:i IGUAL_IMPLICITO expr:e {: RESULT = new ImplicitVarDecl(i, e, ileft, iright); :};
 
 tipo_dato ::= INT {: RESULT = VarType.INT; :} |
@@ -272,6 +340,8 @@ asignacion ::= l_value:lv SUMA_IMPLICITA expr:e {:
                         RESULT = new ImplicitAssign(i.getName(), BinaryOperator.SUMA_IMPLICITA, e, lvleft, lvright); 
                     } else if (lv instanceof IndexAccess ia) {
                         RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "+=", lvleft, lvright);
+                    } else if (lv instanceof FieldAccess fa) {
+                        RESULT = new FieldAssign(fa.getStruct(), fa.getFieldName(), e, "+=", lvleft, lvright);
                     }
                 :} |
                 l_value:lv RESTA_IMPLICITA expr:e {:
@@ -279,6 +349,8 @@ asignacion ::= l_value:lv SUMA_IMPLICITA expr:e {:
                         RESULT = new ImplicitAssign(i.getName(), BinaryOperator.RESTA_IMPLICITA, e, lvleft, lvright); 
                     } else if (lv instanceof IndexAccess ia) {
                         RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "-=", lvleft, lvright);
+                    } else if (lv instanceof FieldAccess fa) {
+                        RESULT = new FieldAssign(fa.getStruct(), fa.getFieldName(), e, "-=", lvleft, lvright);
                     }
                 :} |
                 l_value:lv IGUAL expr:e {:
@@ -286,6 +358,8 @@ asignacion ::= l_value:lv SUMA_IMPLICITA expr:e {:
                         RESULT = new Assign(i.getName(), e, lvleft, lvright); 
                     } else if (lv instanceof IndexAccess ia) {
                         RESULT = new IndexAssign(ia.getSlice(), ia.getIndex(), e, "=", lvleft, lvright);
+                    } else if (lv instanceof FieldAccess fa) {
+                        RESULT = new FieldAssign(fa.getStruct(), fa.getFieldName(), e, "=", lvleft, lvright);
                     }
                 :};
 
@@ -459,8 +533,9 @@ reflect_type_of ::= REFLECT_TYPE_OF:r PARENTESIS_ABIERTO expr:e PARENTESIS_CERRA
                     :} |
                     REFLECT_TYPE_OF PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :};
 
-l_value ::= ID:i {: RESULT = new Identifier(i, ileft, iright); :}
-          | l_value:base CORCHETE_ABIERTO expr:i CORCHETE_CERRADO {: RESULT = new IndexAccess(base, i, baseleft, baseright); :};
+l_value ::= ID:i {: RESULT = new Identifier(i, ileft, iright); :} |
+            l_value:base CORCHETE_ABIERTO expr:i CORCHETE_CERRADO {: RESULT = new IndexAccess(base, i, baseleft, baseright); :} |
+            l_value:base PUNTO ID:campo {: RESULT = new FieldAccess(base, campo, baseleft, baseright); :};
 
 llamada_funcion ::= ID:name PARENTESIS_ABIERTO args_println:a PARENTESIS_CERRADO {: RESULT = new UserFuncCall(name, a, nameleft, nameright); :}
                   | ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO {: RESULT = new UserFuncCall(name, new ArrayList<>(), nameleft, nameright); :};
@@ -511,6 +586,9 @@ expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} 
         PARENTESIS_ABIERTO error PARENTESIS_CERRADO {: RESULT = null; :} |
         tipo_dato:t LLAVE_ABIERTO lista_elementos_slice:elems fin_llave LLAVE_CERRADO {:
             RESULT = new SliceLiteral(t, elems, tleft, tright);
+        :} |
+        LLAVE_ABIERTO:la lista_valores_struct:vals fin_llave LLAVE_CERRADO {:
+            RESULT = new StructLiteral("", vals, laleft, laright);
         :};
 
 literal_slice_anidado ::= LLAVE_ABIERTO:l lista_elementos_slice:elems fin_llave LLAVE_CERRADO {:
@@ -532,3 +610,17 @@ lista_elementos_slice ::= lista_elementos_slice:l COMA elemento_slice:e {:
 
 elemento_slice ::= expr:e {: RESULT = e; :} |
                    literal_slice_anidado:s {: RESULT = s; :};
+
+lista_valores_struct ::= lista_valores_struct:l COMA valor_campo_struct:v {:
+                            l.add(v);
+                            RESULT = l;
+                        :} |
+                        valor_campo_struct:v {:
+                            List<Object[]> list = new ArrayList<>();
+                            list.add(v);
+                            RESULT = list;
+                        :};
+
+valor_campo_struct ::= ID:name DOS_PUNTOS expr:e {:
+                            RESULT = new Object[]{name, e};
+                        :};

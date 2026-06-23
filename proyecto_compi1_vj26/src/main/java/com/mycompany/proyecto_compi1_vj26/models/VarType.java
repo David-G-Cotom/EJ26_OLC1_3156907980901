@@ -27,9 +27,11 @@ public enum VarType {
     SLICE_SLICE_FLOAT("[][]float64"),
     SLICE_SLICE_STRING("[][]string"),
     SLICE_SLICE_BOOL("[][]bool"),
-    SLICE_SLICE_RUNE("[][]rune");
+    SLICE_SLICE_RUNE("[][]rune"),
+    // Struct
+    STRUCT("");
 
-    private final String type;
+    private String type;
 
     private VarType(String type) {
         this.type = type;
@@ -37,6 +39,10 @@ public enum VarType {
 
     public String getType() {
         return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     /**

@@ -14,6 +14,7 @@ import com.mycompany.proyecto_compi1_vj26.symbols.*;
 import com.mycompany.proyecto_compi1_vj26.visitor.Visitor;
 import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.value.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -61,6 +62,12 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         this.output.setLength(0);
         this.semanticErrors.clear();
         this.loopDepth = 0;
+
+        for (StructDecl sd : ctx.structDecls) {
+            if (sd != null) {
+                this.symbolTable.declareStruct(sd.getName(), sd, sd.getLine(), sd.getColumn());
+            }
+        }
 
         for (FuncDecl func : ctx.userFunctions) {
             if (func != null) {
@@ -141,6 +148,37 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                 yield new NullValue(ctx.line, ctx.column);
             }
         };
+    }
+
+    @Override
+    public ValueWrapper visit(FieldAccess.Context ctx) {
+        ValueWrapper target = visit(ctx.struct);
+
+        if (target instanceof NullValue) {
+            this.addError(
+                    "Se intentó acceder al campo \"" + ctx.fieldName + "\" de un struct nulo",
+                    ctx.line, ctx.column
+            );
+            return new NullValue(ctx.line, ctx.column);
+        }
+
+        if (!(target instanceof StructValue sv)) {
+            this.addError(
+                    "Se intentó acceder a un campo de un valor que no es un struct",
+                    ctx.line, ctx.column
+            );
+            return new NullValue(ctx.line, ctx.column);
+        }
+
+        if (!sv.hasField(ctx.fieldName)) {
+            this.addError(
+                    "El campo \"" + ctx.fieldName + "\" no existe en el struct \"" + sv.getStructName() + "\"",
+                    ctx.line, ctx.column
+            );
+            return new NullValue(ctx.line, ctx.column);
+        }
+
+        return sv.getField(ctx.fieldName);
     }
 
     @Override
@@ -231,6 +269,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     addError("reflect.TypeOf requiere un argumento",
                             ctx.line, ctx.column);
                     yield new NullValue(ctx.line, ctx.column);
+                }
+                if (ctx.args.get(0) instanceof StructValue sv) {
+                    yield new StringValue(sv.getStructName(), ctx.line, ctx.column);
                 }
                 ValueWrapper arg = visit(ctx.args.get(0));
                 yield new StringValue(arg.getType(), arg.line(), arg.column());
@@ -395,6 +436,39 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(StructLiteral.Context ctx) {
+        StructDecl decl = this.symbolTable.lookUpStruct(ctx.structName, ctx.line, ctx.column);
+        if (decl == null) {
+            return new NullValue(ctx.line, ctx.column);
+        }
+
+        LinkedHashMap<String, ValueWrapper> fields = new LinkedHashMap<>();
+
+        for (Object[] fieldDef : decl.getFields()) {
+            String fName = (String) fieldDef[0];
+            VarType fType = (VarType) fieldDef[1];
+            fields.put(fName, this.defaultValue(fType, ctx.line, ctx.column));
+        }
+
+        // Sobrescribir con los valores dados en el literal
+        for (Object[] fv : ctx.fieldValues) {
+            String fName = (String) fv[0];
+            ASTNode valueExpr = (ASTNode) fv[1];
+
+            if (!fields.containsKey(fName)) {
+                this.addError(
+                        "El campo \"" + fName + "\" no existe en el struct \"" + ctx.structName + "\"",
+                        ctx.line, ctx.column
+                );
+                continue;
+            }
+            fields.put(fName, visit(valueExpr));
+        }
+
+        return new StructValue(ctx.structName, fields, ctx.line, ctx.column);
+    }
+
+    @Override
     public ValueWrapper visit(Unary.Context ctx) {
         ValueWrapper val = visit(ctx.operand);
 
@@ -461,6 +535,13 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
 
             for (ASTNode stmt : funcCtx.body.getStatements()) {
+                if (stmt instanceof FuncCall fc &&
+                        fc.getFunctionName() == FuncName.RETURN &&
+                        fc.getArgs().size() == 1 &&
+                        fc.getArgs().get(0) instanceof StructLiteral sl &&
+                        sl.getStructName().isEmpty()) {
+                    sl.setStructName(funcCtx.returnType.getType());
+                }
                 visit(stmt);
             }
 
@@ -492,6 +573,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         Symbol sym = this.symbolTable.lookUp(ctx.name, ctx.line, ctx.column);
         if (sym == null) {
             return this.defaultVoid;
+        }
+        if (sym.getType() == VarType.STRUCT && ctx.value instanceof StructLiteral sl) {
+            sl.setStructName(sym.getType().getType());
         }
         ValueWrapper newValue = visit(ctx.value);
         newValue = this.coerce(newValue, sym.getType(), ctx.line, ctx.column);
@@ -532,6 +616,44 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return this.defaultVoid;
         }
         throw new ContinueException();
+    }
+
+    @Override
+    public ValueWrapper visit(FieldAssign.Context ctx) {
+        ValueWrapper target = visit(ctx.struct);
+
+        if (!(target instanceof StructValue sv)) {
+            this.addError(
+                    "Se intentó asignar un campo en un valor que no es un struct (¿está inicializado?)",
+                    ctx.line, ctx.column
+            );
+            return this.defaultVoid;
+        }
+
+        if (!sv.hasField(ctx.fieldName)) {
+            this.addError(
+                    "El campo \"" + ctx.fieldName + "\" no existe en el struct \"" + sv.getStructName() + "\"",
+                    ctx.line, ctx.column
+            );
+            return this.defaultVoid;
+        }
+
+        ValueWrapper val = visit(ctx.value);
+        ValueWrapper current = sv.getField(ctx.fieldName);
+
+        ValueWrapper newVal = switch (ctx.operator) {
+            case "=" ->
+                val;
+            case "+=" ->
+                applyArithmetic(current, BinaryOperator.SUMA, val, ctx.line, ctx.column);
+            case "-=" ->
+                applyArithmetic(current, BinaryOperator.RESTA, val, ctx.line, ctx.column);
+            default ->
+                val;
+        };
+
+        sv.setField(ctx.fieldName, newVal);
+        return this.defaultVoid;
     }
 
     @Override
@@ -772,6 +894,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     }
 
     @Override
+    public ValueWrapper visit(StructDecl.Context ctx) {
+        // Las definiciones de struct se registran en visit(ProgramNode.Context)
+        // antes de ejecutar main. Este método no debería invocarse en flujo normal.
+        // Pero se requiere por el contrato de Visitor.
+        return this.defaultVoid;
+    }
+
+    @Override
     public ValueWrapper visit(Switch.Context ctx) {
         ValueWrapper switchVal = visit(ctx.condition);
 
@@ -881,6 +1011,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     yield new CharValue((char) i.value(), line, col); // int -> rune
                 }
                 this.addError("No se puede asignar " + value.getType() + " a una variable rune",
+                        line, col);
+                yield new NullValue(line, col);
+            }
+            case VarType.STRUCT -> {
+                if (value instanceof StructValue) {
+                    yield value;
+                }
+                this.addError("No se puede asignar " + value.getType() + " a una variable struct",
                         line, col);
                 yield new NullValue(line, col);
             }
@@ -1132,6 +1270,9 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return (int) c.value() + "";
         }
         if (val instanceof SliceValue sv) {
+            return sv.toString();
+        }
+        if (val instanceof StructValue sv) {
             return sv.toString();
         }
         return String.valueOf(val);

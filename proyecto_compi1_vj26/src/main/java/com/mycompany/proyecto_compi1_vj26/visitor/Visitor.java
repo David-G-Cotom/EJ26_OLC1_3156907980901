@@ -22,6 +22,8 @@ public interface Visitor<T> {
 
     T visit(Binary.Context ctx);
 
+    T visit(FieldAccess.Context ctx);
+
     T visit(FuncCall.Context ctx);
 
     T visit(Identifier.Context ctx);
@@ -31,6 +33,8 @@ public interface Visitor<T> {
     T visit(Literal.Context ctx);
 
     T visit(SliceLiteral.Context ctx);
+
+    T visit(StructLiteral.Context ctx);
 
     T visit(Unary.Context ctx);
 
@@ -43,6 +47,8 @@ public interface Visitor<T> {
     T visit(Break.Context ctx);
 
     T visit(Continue.Context ctx);
+
+    T visit(FieldAssign.Context ctx);
 
     T visit(For.Context ctx);
 
@@ -61,6 +67,8 @@ public interface Visitor<T> {
     T visit(IncDec.Context ctx);
 
     T visit(IndexAssign.Context ctx);
+
+    T visit(StructDecl.Context ctx);
 
     T visit(Switch.Context ctx);
 
