@@ -5,7 +5,9 @@
 package com.mycompany.proyecto_compi1_vj26.frontend;
 
 import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
+import com.mycompany.proyecto_compi1_vj26.models.ReportType;
 import com.mycompany.proyecto_compi1_vj26.models.Token;
+import com.mycompany.proyecto_compi1_vj26.symbols.Symbol;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -31,12 +33,15 @@ import javax.swing.table.DefaultTableModel;
  */
 public class ReportFrame extends javax.swing.JFrame {
 
-    public enum Mode {
-        TOKENS, ERRORS
-    }
-
-    public ReportFrame(Mode mode, List<?> data) {
-        setTitle(mode == Mode.TOKENS ? "Reporte de Tokens" : "Reporte de Errores");
+    public ReportFrame(ReportType mode, List<?> data) {
+        setTitle(switch (mode) {
+            case TOKENS ->
+                "Reporte de Tokens";
+            case ERRORS ->
+                "Reporte de Errores";
+            case SYMBOLS ->
+                "Reporte de Tabla de Símbolos";
+        });
         setSize(750, 480);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -47,7 +52,14 @@ public class ReportFrame extends javax.swing.JFrame {
 
         // --- Encabezado ---
         JLabel header = new JLabel(
-                mode == Mode.TOKENS ? "Tabla de Tokens" : "Tabla de Errores",
+                switch (mode) {
+            case TOKENS ->
+                "Tabla de Tokens";
+            case ERRORS ->
+                "Tabla de Errores";
+            case SYMBOLS ->
+                "Tabla de Símbolos";
+        },
                 SwingConstants.CENTER
         );
         header.setFont(new Font("SansSerif", Font.BOLD, 15));
@@ -80,7 +92,7 @@ public class ReportFrame extends javax.swing.JFrame {
         table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
 
         // Colorear filas de error por tipo
-        if (mode == Mode.ERRORS) {
+        if (mode == ReportType.ERRORS) {
             table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
                 @Override
                 public Component getTableCellRendererComponent(
@@ -89,12 +101,37 @@ public class ReportFrame extends javax.swing.JFrame {
                     if (!selected) {
                         String tipo = (String) t.getValueAt(row, 4);
                         setBackground(switch (tipo) {
-                            case "Léxico" ->
+                            case "Lexico" ->
                                 new Color(255, 235, 230);
-                            case "Sintáctico" ->
+                            case "Sintactico" ->
                                 new Color(255, 250, 220);
-                            case "Semántico" ->
+                            case "Semantico" ->
                                 new Color(230, 245, 255);
+                            default ->
+                                Color.WHITE;
+                        });
+                    }
+                    return this;
+                }
+            });
+        }
+
+        // Colorear filas de simbolos por tipo de simbolo
+        if (mode == ReportType.SYMBOLS) {
+            table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+                @Override
+                public Component getTableCellRendererComponent(
+                        JTable t, Object value, boolean selected, boolean focused, int row, int col) {
+                    super.getTableCellRendererComponent(t, value, selected, focused, row, col);
+                    if (!selected) {
+                        String kind = (String) t.getValueAt(row, 2);
+                        setBackground(switch (kind) {
+                            case "Variable" ->
+                                Color.WHITE;
+                            case "Funcion" ->
+                                new Color(230, 245, 255);
+                            case "Campo de Struct" ->
+                                new Color(240, 255, 235);
                             default ->
                                 Color.WHITE;
                         });
@@ -114,9 +151,15 @@ public class ReportFrame extends javax.swing.JFrame {
         // --- Barra inferior: contador + botón cerrar ---
         JPanel bottom = new JPanel(new BorderLayout());
         bottom.setBackground(Color.WHITE);
-        JLabel count = new JLabel(
-                "Total: " + data.size() + " " + (mode == Mode.TOKENS ? "token(s)" : "error(es)")
-        );
+        String suffix = switch (mode) {
+            case TOKENS ->
+                "token(s)";
+            case ERRORS ->
+                "error(es)";
+            case SYMBOLS ->
+                "símbolo(s)";
+        };
+        JLabel count = new JLabel("Total: " + data.size() + " " + suffix);
         count.setFont(new Font("SansSerif", Font.PLAIN, 11));
         count.setForeground(new Color(100, 100, 100));
 
@@ -157,39 +200,55 @@ public class ReportFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     // --- Utilidades ---
-    private String[] columns(Mode mode) {
-        return mode == Mode.TOKENS
-                ? new String[]{"No.", "Lexema", "Tipo", "Línea", "Columna"}
-                : new String[]{"No.", "Descripción", "Línea", "Columna", "Tipo"};
+    private String[] columns(ReportType mode) {
+        return switch (mode) {
+            case TOKENS ->
+                new String[]{"No.", "Lexema", "Tipo", "Línea", "Columna"};
+            case ERRORS ->
+                new String[]{"No.", "Descripción", "Línea", "Columna", "Tipo"};
+            case SYMBOLS ->
+                new String[]{"No.", "ID", "Tipo símbolo", "Tipo dato", "Ámbito", "Línea", "Columna"};
+        };
     }
 
-    private Object[][] buildRows(Mode mode, List<?> data) {
+    private Object[][] buildRows(ReportType mode, List<?> data) {
         Object[][] rows = new Object[data.size()][];
         for (int i = 0; i < data.size(); i++) {
-            if (mode == Mode.TOKENS) {
-                Token t = (Token) data.get(i);
-                rows[i] = new Object[]{i + 1, t.getLexeme(), t.getType(),
-                    t.getLine(), t.getColumn()};
-            } else {
-                ErrorReport e = (ErrorReport) data.get(i);
-                rows[i] = new Object[]{i + 1, e.getDescription(), e.getLine(),
-                    e.getColumn(), e.getType().getType()};
+            switch (mode) {
+                case TOKENS -> {
+                    Token t = (Token) data.get(i);
+                    rows[i] = new Object[]{i + 1, t.getLexeme(), t.getType(),
+                        t.getLine(), t.getColumn()};
+                }
+                case ERRORS -> {
+                    ErrorReport e = (ErrorReport) data.get(i);
+                    rows[i] = new Object[]{i + 1, e.getDescription(), e.getLine(),
+                        e.getColumn(), e.getType().getType()};
+                }
+                case SYMBOLS -> {
+                    Symbol s = (Symbol) data.get(i);
+                    String ambito = s.getScope() <= 0
+                            ? "Global"
+                            : "Local (nivel " + s.getScope() + ")";
+                    rows[i] = new Object[]{i + 1, s.getName(), s.getSymbolType().getType(),
+                        s.getType().getType(), ambito, s.getLine(), s.getColumn()};
+                }
             }
         }
         return rows;
     }
 
-    private void setColumnWidths(JTable table, Mode mode) {
-        if (mode == Mode.TOKENS) {
-            int[] widths = {45, 180, 180, 60, 70};
-            for (int i = 0; i < widths.length; i++) {
-                table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-            }
-        } else {
-            int[] widths = {45, 360, 60, 70, 90};
-            for (int i = 0; i < widths.length; i++) {
-                table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-            }
+    private void setColumnWidths(JTable table, ReportType mode) {
+        int[] widths = switch (mode) {
+            case TOKENS ->
+                new int[]{45, 180, 180, 60, 70};
+            case ERRORS ->
+                new int[]{45, 360, 60, 70, 90};
+            case SYMBOLS ->
+                new int[]{45, 170, 130, 110, 130, 60, 70};
+        };
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
     }
 

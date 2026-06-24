@@ -7,8 +7,10 @@ package com.mycompany.proyecto_compi1_vj26.frontend;
 import com.mycompany.proyecto_compi1_vj26.Lexer;
 import com.mycompany.proyecto_compi1_vj26.ast.ProgramNode;
 import com.mycompany.proyecto_compi1_vj26.models.ErrorReport;
+import com.mycompany.proyecto_compi1_vj26.models.ReportType;
 import com.mycompany.proyecto_compi1_vj26.models.Token;
 import com.mycompany.proyecto_compi1_vj26.parser;
+import com.mycompany.proyecto_compi1_vj26.symbols.Symbol;
 import com.mycompany.proyecto_compi1_vj26.visitor.interpreter.InterpreterVisitor;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -164,6 +166,7 @@ public class IDEGoLite extends JFrame {
         JMenu menuReportes = new JMenu("Reportes");
         this.addMenuItem(menuReportes, "Tabla de Tokens", null, e -> this.mostrarUltimoReporteTokens());
         this.addMenuItem(menuReportes, "Tabla de Errores", null, e -> this.mostrarUltimoReporteErrores());
+        this.addMenuItem(menuReportes, "Tabla de Símbolos", null, e -> this.mostrarUltimoReporteSimbolos());
 
         // --- Ayuda ---
         JMenu menuAyuda = new JMenu("Ayuda");
@@ -374,6 +377,7 @@ public class IDEGoLite extends JFrame {
     // Guardamos el último resultado para poder mostrarlo en los reportes
     private List<Token> lastTokens = new ArrayList<>();
     private List<ErrorReport> lastErrors = new ArrayList<>();
+    private List<Symbol> lastSymbols = new ArrayList<>();
 
     private void ejecutar() {
         EditorTab tab = this.currentTab();
@@ -431,6 +435,9 @@ public class IDEGoLite extends JFrame {
             InterpreterVisitor interpreter = new InterpreterVisitor();
             interpreter.visit(ast);
 
+            // Capturar el historial de simbolos para el reporte
+            this.lastSymbols = interpreter.getSymbolTable().getAllDeclaredSymbols();
+
             // --- 4. Output del programa ---
             String output = interpreter.getOutput();
             if (!output.isEmpty()) {
@@ -481,7 +488,7 @@ public class IDEGoLite extends JFrame {
                     "Reporte de Tokens", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        new ReportFrame(ReportFrame.Mode.TOKENS, this.lastTokens).setVisible(true);
+        new ReportFrame(ReportType.TOKENS, this.lastTokens).setVisible(true);
     }
 
     private void mostrarUltimoReporteErrores() {
@@ -491,7 +498,17 @@ public class IDEGoLite extends JFrame {
                     "Reporte de Errores", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        new ReportFrame(ReportFrame.Mode.ERRORS, this.lastErrors).setVisible(true);
+        new ReportFrame(ReportType.ERRORS, this.lastErrors).setVisible(true);
+    }
+
+    private void mostrarUltimoReporteSimbolos() {
+        if (this.lastSymbols.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "No hay símbolos disponibles. Ejecuta el código primero.",
+                    "Reporte de Tabla de Símbolos", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        new ReportFrame(ReportType.SYMBOLS, this.lastSymbols).setVisible(true);
     }
 
     // --- Ayuda ---

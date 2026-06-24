@@ -69,11 +69,13 @@ public class EditorTab extends javax.swing.JPanel {
         this.editor.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                setModified(true);
                 updateLineNumbers();
             }
 
             @Override
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                setModified(true);
                 updateLineNumbers();
             }
 

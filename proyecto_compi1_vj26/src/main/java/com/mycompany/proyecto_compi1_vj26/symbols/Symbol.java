@@ -19,14 +19,20 @@ public class Symbol {
     private final int scope;
     private final int line;
     private final int column;
+    private final SymbolType symbolType;
 
     public Symbol(String name, VarType type, ValueWrapper value, int scope, int line, int column) {
+        this(name, type, value, scope, line, column, SymbolType.VARIABLE);
+    }
+
+    public Symbol(String name, VarType type, ValueWrapper value, int scope, int line, int column, SymbolType symbolType) {
         this.name = name;
         this.type = type;
         this.value = value;
         this.scope = scope;
         this.line = line;
         this.column = column;
+        this.symbolType = symbolType;
     }
 
     public String getName() {
@@ -61,9 +67,13 @@ public class Symbol {
         return column;
     }
 
+    public SymbolType getSymbolType() {
+        return symbolType;
+    }
+
     @Override
     public String toString() {
-        return "Symbol{" + "name=" + name + ", type=" + type + ", value=" + value + ", scope=" + scope + ", line=" + line + ", column=" + column + '}';
+        return "Symbol{" + "name=" + name + ", type=" + type + ", value=" + value + ", scope=" + scope + ", line=" + line + ", column=" + column + ", symbolType=" + symbolType + '}';
     }
 
 }

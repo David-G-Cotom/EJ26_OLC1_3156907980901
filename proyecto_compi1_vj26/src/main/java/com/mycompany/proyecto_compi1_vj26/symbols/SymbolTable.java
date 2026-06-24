@@ -25,6 +25,8 @@ public class SymbolTable {
     private final HashMap<String, FuncDecl> functions;
     private final HashMap<String, StructDecl> structs;
 
+    private final List<Symbol> allDeclaredSymbols;
+
     private int currentLevel;
     private boolean isBlockFor;
 
@@ -34,6 +36,7 @@ public class SymbolTable {
         this.scopes = new ArrayList<>();
         this.functions = new HashMap<>();
         this.structs = new HashMap<>();
+        this.allDeclaredSymbols = new ArrayList<>();
         this.semanticErrors = semanticErrors;
         this.currentLevel = -1;
         this.isBlockFor = false;
@@ -45,6 +48,10 @@ public class SymbolTable {
 
     public HashMap<String, StructDecl> getStructs() {
         return structs;
+    }
+
+    public List<Symbol> getAllDeclaredSymbols() {
+        return allDeclaredSymbols;
     }
 
     public int getCurrentLevel() {
@@ -90,8 +97,9 @@ public class SymbolTable {
                 return false;
             }
         }
-
-        currentScope.put(name, new Symbol(name, type, value, this.currentLevel, line, column));
+        Symbol sym = new Symbol(name, type, value, this.currentLevel, line, column, SymbolType.VARIABLE);
+        currentScope.put(name, sym);
+        this.allDeclaredSymbols.add(sym);
         return true;
     }
 
@@ -129,6 +137,8 @@ public class SymbolTable {
             return false;
         }
         this.functions.put(name, decl);
+        VarType returnType = decl.getReturnType() != null ? decl.getReturnType() : VarType.NIL;
+        this.allDeclaredSymbols.add(new Symbol(name, returnType, null, 0, line, column, SymbolType.FUNCION));
         return true;
     }
 
@@ -156,6 +166,12 @@ public class SymbolTable {
             return false;
         }
         this.structs.put(name, decl);
+        for (Object[] fieldDef : decl.getFields()) {
+            String fieldName = (String) fieldDef[0];
+            VarType fieldType = (VarType) fieldDef[1];
+            String qualifiedName = name + "." + fieldName;
+            this.allDeclaredSymbols.add(new Symbol(qualifiedName, fieldType, null, 0, line, column, SymbolType.CAMPO_STRUCT));
+        }
         return true;
     }
 
@@ -207,6 +223,8 @@ public class SymbolTable {
     public void reset() {
         this.scopes.clear();
         this.functions.clear();
+        this.structs.clear();
+        this.allDeclaredSymbols.clear();
         this.semanticErrors.clear();
         this.currentLevel = -1;
         this.isBlockFor = false;
