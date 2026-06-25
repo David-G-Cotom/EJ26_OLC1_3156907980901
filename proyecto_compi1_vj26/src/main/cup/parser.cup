@@ -129,6 +129,7 @@ non terminal ASTNode transferencia;
 non terminal ASTNode sentencia_switch;
 non terminal List bloque_switch;
 non terminal Object[] caso_switch;
+non terminal Object[] default_switch;
 
 non terminal ASTNode expr;
 non terminal ASTNode expr_and, expr_not, expr_rel;
@@ -157,7 +158,6 @@ non terminal ASTNode elemento_slice;
 non terminal StructDecl struct;
 non terminal List<Object[]> lista_campos_struct;
 non terminal Object[] campo_struct;
-non terminal StructLiteral literal_struct;
 non terminal List<Object[]> lista_valores_struct;
 non terminal Object[] valor_campo_struct;
 
@@ -226,7 +226,18 @@ funcion_usuario ::= FUNC:f ID:name PARENTESIS_ABIERTO lista_params:p PARENTESIS_
                     FUNC:f ID:name PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo:b {:
                         RESULT = new FuncDecl(name, new ArrayList<>(), null, b, fleft, fright);
                     :} |
-                    FUNC error bloque_codigo {: RESULT = null; :};
+                    FUNC error bloque_codigo {: RESULT = null; :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO error PARENTESIS_CERRADO tipo_dato:ret bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, new ArrayList<>(), ret, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO error PARENTESIS_CERRADO ID:ret bloque_codigo:b {:
+                        VarType type = VarType.STRUCT;
+                        type.setType(ret);
+                        RESULT = new FuncDecl(name, new ArrayList<>(), type, b, fleft, fright);
+                    :} |
+                    FUNC:f ID:name PARENTESIS_ABIERTO error PARENTESIS_CERRADO bloque_codigo:b {:
+                        RESULT = new FuncDecl(name, new ArrayList<>(), null, b, fleft, fright);
+                    :};
 
 lista_params ::= lista_params:l COMA param:p {:
                     l.add(p);
@@ -251,12 +262,16 @@ struct ::= STRUCT:s ID:name LLAVE_ABIERTO lista_campos_struct:campos LLAVE_CERRA
             STRUCT error LLAVE_CERRADO fin_llave {: RESULT = null; :};
 
 lista_campos_struct ::= lista_campos_struct:l campo_struct:c {:
-                            l.add(c);
+                            if (c != null) {
+                                l.add(c);
+                            }
                             RESULT = l;
                         :} |
                         campo_struct:c {:
                             List<Object[]> list = new ArrayList<>();
-                            list.add(c);
+                            if (c != null) {
+                                list.add(c);
+                            }
                             RESULT = list;
                         :};
 
@@ -267,7 +282,8 @@ campo_struct ::= tipo_dato:t ID:name PUNTO_COMA {:
                     VarType type = VarType.STRUCT;
                     type.setType(structTypeName);
                     RESULT = new Object[]{name, type, structTypeName};
-                :};
+                :} |
+                error PUNTO_COMA {: RESULT = null; :};
 
 bloque_codigo ::= LLAVE_ABIERTO:l contenido:c LLAVE_CERRADO {: RESULT = new Block(c, lleft, lright); :} |
                     LLAVE_ABIERTO:l LLAVE_CERRADO {: RESULT = new Block(new ArrayList<>(), lleft, lright); :} |
@@ -289,7 +305,7 @@ instruccion ::= variable:v PUNTO_COMA {: RESULT = v; :} |
                 funcion_embebida:f PUNTO_COMA {: RESULT = f; :} |
                 bloque_codigo:b fin_llave {: RESULT = b; :} |
                 sentencia_if:s fin_llave {: RESULT = s; :} |
-                sentencia_switch:s {: RESULT = s; :} |
+                sentencia_switch:s fin_llave {: RESULT = s; :} |
                 sentencia_for:s fin_llave {: RESULT = s; :} |
                 inc_dec:i PUNTO_COMA {: RESULT = i; :} |
                 transferencia:t {: RESULT = t; :} |
@@ -391,10 +407,13 @@ continuar_else ::= sentencia_if:s {:
                     :} |
                     bloque_codigo:b {: RESULT = new Object[]{new ArrayList<>(), new ArrayList<>(), b}; :};
 
-sentencia_switch ::= SWITCH:s expr:e LLAVE_ABIERTO bloque_switch:bc LLAVE_CERRADO {:
+sentencia_switch ::= SWITCH:s expr:e LLAVE_ABIERTO bloque_switch:bc default_switch:df LLAVE_CERRADO {:
                             List<ASTNode> caseExprs = new ArrayList<>();
                             List<List<ASTNode>> caseBodies = new ArrayList<>();
                             List<ASTNode> defaultBody = null;
+                            if (df != null) {
+                                bc.add(df);
+                            }
                             for (Object item : bc) {
                                 Object[] pair = (Object[]) item;
                                 if (pair[0] == null) {
@@ -407,7 +426,7 @@ sentencia_switch ::= SWITCH:s expr:e LLAVE_ABIERTO bloque_switch:bc LLAVE_CERRAD
                             }
                             RESULT = new Switch(e, caseExprs, caseBodies, defaultBody, sleft, sright);
                         :} |
-                        SWITCH error LLAVE_ABIERTO bloque_switch LLAVE_CERRADO {: RESULT = null; :};
+                        SWITCH error LLAVE_ABIERTO bloque_switch default_switch LLAVE_CERRADO {: RESULT = null; :};
 
 bloque_switch ::= bloque_switch:b caso_switch:c {:
                         b.add(c);
@@ -417,15 +436,15 @@ bloque_switch ::= bloque_switch:b caso_switch:c {:
                         List<Object[]> list = new ArrayList<>();
                         list.add(c);
                         RESULT = list;
-                    :} |
-                    DEFAULT DOS_PUNTOS contenido:c {:
-                        List<Object[]> list = new ArrayList<>();
-                        list.add(new Object[]{null, c});   // null cond = default
-                        RESULT = list;
                     :};
 
 caso_switch ::= CASE expr:e DOS_PUNTOS contenido:c {: RESULT = new Object[]{e, c}; :} |
                 CASE error DOS_PUNTOS contenido {: RESULT = null; :};
+
+default_switch ::= DEFAULT DOS_PUNTOS contenido:c {:
+                        RESULT = new Object[]{null, c}; // null cond = default
+                    :} |
+                    /* empty */ {: RESULT = null; :};
 
 sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
                         ASTNode init = c[0];
@@ -441,6 +460,9 @@ sentencia_for ::= FOR:f condicion_for:c bloque_codigo:b {:
                     FOR error bloque_codigo {: RESULT = null; :} |
                     FOR:f ID:idx COMA ID:val IGUAL_IMPLICITO RANGE expr:it bloque_codigo:bc {:
                         RESULT = new ForRange(idx, val, it, bc, fleft, fright);
+                    :} |
+                    FOR ID COMA ID IGUAL_IMPLICITO RANGE error bloque_codigo:bc {:
+                        RESULT = new ForRange("error", "error", null, bc, bcleft, bcright);
                     :};
 
 condicion_for ::= expr:e {: RESULT = new ASTNode[]{null, e, null}; :} |
@@ -589,23 +611,28 @@ expr_primary ::= PARENTESIS_ABIERTO expr:e PARENTESIS_CERRADO {: RESULT = e; :} 
         :} |
         LLAVE_ABIERTO:la lista_valores_struct:vals fin_llave LLAVE_CERRADO {:
             RESULT = new StructLiteral("", vals, laleft, laright);
-        :};
+        :} |
+        LLAVE_ABIERTO:la error LLAVE_CERRADO {: RESULT = null; :};
 
 literal_slice_anidado ::= LLAVE_ABIERTO:l lista_elementos_slice:elems fin_llave LLAVE_CERRADO {:
-                              RESULT = new SliceLiteral(null, elems, lleft, lright);
-                          :} |
-                          LLAVE_ABIERTO:l LLAVE_CERRADO {:
-                              RESULT = new SliceLiteral(null, new ArrayList<>(), lleft, lright);
-                          :};
+                                RESULT = new SliceLiteral(null, elems, lleft, lright);
+                            :} |
+                            LLAVE_ABIERTO:l LLAVE_CERRADO {:
+                                RESULT = new SliceLiteral(null, new ArrayList<>(), lleft, lright);
+                            :};
 
 lista_elementos_slice ::= lista_elementos_slice:l COMA elemento_slice:e {:
-                              l.add(e);
-                              RESULT = l;
+                            if (e != null) {
+                                l.add(e);
+                            }
+                            RESULT = l;
                           :} |
                           elemento_slice:e {:
-                              List<ASTNode> list = new ArrayList<>();
-                              list.add(e);
-                              RESULT = list;
+                            List<ASTNode> list = new ArrayList<>();
+                            if (e != null) {
+                                list.add(e);
+                            }
+                            RESULT = list;
                           :};
 
 elemento_slice ::= expr:e {: RESULT = e; :} |

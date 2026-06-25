@@ -700,6 +700,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         this.loopDepth++;
         try {
             while (true) {
+                this.symbolTable.setIsBlockFor(true);
                 ValueWrapper cond = visit(ctx.condition);
                 if (!(cond instanceof BoolValue c)) {
                     this.addError("La condicion del 'for' debe ser de tipo bool",
@@ -719,6 +720,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         } catch (BreakException ignored) {
             // Sale del bucle
         } finally {
+            this.symbolTable.setIsBlockFor(false);
             this.loopDepth--;
         }
         return this.defaultVoid;
@@ -738,6 +740,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         try {
             for (int i = 0; i < sv.size(); i++) {
                 this.symbolTable.pushScope();
+                this.symbolTable.setIsBlockFor(true);
                 try {
                     VarType elemType = sv.getSliceType().elementType();
                     this.symbolTable.declare(ctx.index, VarType.INT,
@@ -758,6 +761,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         } catch (BreakException e) {
             // salir del for range
         } finally {
+            this.symbolTable.setIsBlockFor(false);
             this.loopDepth--;
         }
         return this.defaultVoid;
