@@ -1,18 +1,49 @@
-inicio ::= funcion_main fin_llave
+inicio ::= declaraciones_globales funcion_main declaraciones_globales
            | error fin_llave
 
-funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo
-                 | FUNC MAIN error bloque_codigo
+declaraciones_globales ::= declaraciones_globales funcion_usuario fin_llave
+                           | declaraciones_globales struct
+                           | ε
 
+fin_llave ::= PUNTO_COMA
+              | ε
+              
+funcion_main ::= FUNC MAIN PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo fin_llave
+                 | FUNC MAIN error bloque_codigo fin_llave
+                 
+funcion_usuario ::= FUNC ID PARENTESIS_ABIERTO lista_params PARENTESIS_CERRADO tipo_dato bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO lista_params PARENTESIS_CERRADO ID bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO lista_params PARENTESIS_CERRADO bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO PARENTESIS_CERRADO tipo_dato bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO PARENTESIS_CERRADO ID bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO PARENTESIS_CERRADO bloque_codigo
+                    | FUNC error bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO error PARENTESIS_CERRADO tipo_dato bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO error PARENTESIS_CERRADO ID bloque_codigo
+                    | FUNC ID PARENTESIS_ABIERTO error PARENTESIS_CERRADO bloque_codigo
+                    
+lista_params ::= lista_params COMA param
+                 | param
+
+param ::= ID tipo_dato
+          | ID ID
+          
+struct ::= STRUCT ID LLAVE_ABIERTO lista_campos_struct LLAVE_CERRADO fin_llave
+           | STRUCT error LLAVE_CERRADO fin_llave
+
+lista_campos_struct ::= lista_campos_struct campo_struct
+                        | campo_struct
+
+campo_struct ::= tipo_dato ID PUNTO_COMA
+                 | ID ID PUNTO_COMA
+                 | error PUNTO_COMA
+                 
 bloque_codigo ::= LLAVE_ABIERTO contenido LLAVE_CERRADO
                   | LLAVE_ABIERTO LLAVE_CERRADO
                   | LLAVE_ABIERTO error LLAVE_CERRADO
 
 contenido ::= contenido instruccion
               | instruccion
-
-fin_llave ::= PUNTO_COMA
-              | ε
               
 instruccion ::= variable PUNTO_COMA
                 | asignacion PUNTO_COMA
@@ -27,23 +58,39 @@ instruccion ::= variable PUNTO_COMA
                 | error PUNTO_COMA
                 
 variable ::= VAR ID tipo_dato definicion
+             | VAR ID ID definicion
+             | ID ID definicion    
              | ID IGUAL_IMPLICITO expr
 
+definicion ::= IGUAL expr
+               | ε
+               
 tipo_dato ::= INT
               | FLOAT
               | STRING
               | BOOL
               | RUNE
-
-definicion ::= IGUAL expr
-               | ε
-
-asignacion ::= ID SUMA_IMPLICITA expr
-               | ID RESTA_IMPLICITA expr
-               | ID IGUAL expr
+              | CORCHETE_ABIERTO CORCHETE_CERRADO INT
+              | CORCHETE_ABIERTO CORCHETE_CERRADO FLOAT
+              | CORCHETE_ABIERTO CORCHETE_CERRADO STRING
+              | CORCHETE_ABIERTO CORCHETE_CERRADO BOOL
+              | CORCHETE_ABIERTO CORCHETE_CERRADO RUNE
+              | CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO INT
+              | CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO FLOAT
+              | CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO STRING
+              | CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO BOOL
+              | CORCHETE_ABIERTO CORCHETE_CERRADO CORCHETE_ABIERTO CORCHETE_CERRADO RUNE
+              
+asignacion ::= l_value SUMA_IMPLICITA expr
+               | l_value RESTA_IMPLICITA expr
+               | l_value IGUAL expr
 
 inc_dec ::= ID INCREMENTO
             | ID DECREMENTO
+            
+l_value ::= ID
+            | l_value CORCHETE_ABIERTO expr CORCHETE_CERRADO
+            | l_value PUNTO ID
             
 sentencia_if ::= IF expr bloque_codigo fin_if
                  | IF error bloque_codigo
@@ -55,22 +102,26 @@ fin_if ::= ELSE continuar_else
 continuar_else ::= sentencia_if
                    | bloque_codigo
                    
-sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch LLAVE_CERRADO
-                     | SWITCH error LLAVE_ABIERTO bloque_switch LLAVE_CERRADO
+sentencia_switch ::= SWITCH expr LLAVE_ABIERTO bloque_switch default_switch LLAVE_CERRADO
+                     | SWITCH error LLAVE_ABIERTO bloque_switch default_switch LLAVE_CERRADO
 
 bloque_switch ::= bloque_switch caso_switch
                   | caso_switch
-                  | DEFAULT DOS_PUNTOS contenido
 
 caso_switch ::= CASE expr DOS_PUNTOS contenido
                 | CASE error DOS_PUNTOS contenido
-                
+
+default_switch ::= DEFAULT DOS_PUNTOS contenido
+                   | ε
+                   
 sentencia_for ::= FOR condicion_for bloque_codigo
                   | FOR error bloque_codigo
+                  | FOR ID COMA ID IGUAL_IMPLICITO RANGE expr bloque_codigo
+                  | FOR ID COMA ID IGUAL_IMPLICITO RANGE error bloque_codigo
 
 condicion_for ::= expr
                   | variable PUNTO_COMA expr PUNTO_COMA inc_dec
-                  | INDICE COMA VALOR IGUAL_IMPLICITO RANGE ID
+                  | variable PUNTO_COMA expr PUNTO_COMA asignacion
                   
 transferencia ::= BREAK PUNTO_COMA
                   | CONTINUE PUNTO_COMA
@@ -80,18 +131,21 @@ transferencia ::= BREAK PUNTO_COMA
                   | BREAK error PUNTO_COMA
                   | CONTINUE error PUNTO_COMA
                   
+llamada_funcion ::= ID PARENTESIS_ABIERTO args_println PARENTESIS_CERRADO
+                    | ID PARENTESIS_ABIERTO PARENTESIS_CERRADO
+                    
 funcion_slice ::= slices_index
                   | strings_join
                   | len
                   | append
 
-slices_index ::= SLICES_INDEX PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO
+slices_index ::= SLICES_INDEX PARENTESIS_ABIERTO expr COMA expr PARENTESIS_CERRADO
 
-strings_join ::= STRINGS_JOIN PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO
+strings_join ::= STRINGS_JOIN PARENTESIS_ABIERTO expr COMA expr PARENTESIS_CERRADO
 
-len ::= LEN PARENTESIS_ABIERTO ID PARENTESIS_CERRADO
+len ::= LEN PARENTESIS_ABIERTO expr PARENTESIS_CERRADO
 
-append ::= APPEND PARENTESIS_ABIERTO ID COMA expr_primary PARENTESIS_CERRADO
+append ::= APPEND PARENTESIS_ABIERTO expr COMA expr PARENTESIS_CERRADO
 
 funcion_embebida ::= fmt_println
                      | strconv_atoi
@@ -149,12 +203,30 @@ expr_unary ::= RESTA expr_unary
 expr_primary ::= PARENTESIS_ABIERTO expr PARENTESIS_CERRADO
                  | NUMERO_DECIMAL
                  | NUMERO_ENTERO
-                 | ID
                  | TEXTO
                  | CHARACTER
                  | TRUE
                  | FALSE
                  | NIL
+                 | l_value
+                 | llamada_funcion
                  | funcion_slice
                  | funcion_embebida
                  | PARENTESIS_ABIERTO error PARENTESIS_CERRADO
+                 | tipo_dato LLAVE_ABIERTO lista_elementos_slice fin_llave LLAVE_CERRADO
+                 | LLAVE_ABIERTO lista_valores_struct fin_llave LLAVE_CERRADO
+                 | LLAVE_ABIERTO error LLAVE_CERRADO
+                 
+lista_elementos_slice ::= lista_elementos_slice COMA elemento_slice
+                          | elemento_slice
+
+elemento_slice ::= expr
+                   | literal_slice_anidado
+
+literal_slice_anidado ::= LLAVE_ABIERTO lista_elementos_slice fin_llave LLAVE_CERRADO
+                          | LLAVE_ABIERTO LLAVE_CERRADO
+                          
+lista_valores_struct ::= lista_valores_struct COMA valor_campo_struct
+                         | valor_campo_struct
+
+valor_campo_struct ::= ID DOS_PUNTOS expr
