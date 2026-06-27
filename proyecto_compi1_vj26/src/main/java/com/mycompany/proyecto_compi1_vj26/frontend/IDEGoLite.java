@@ -68,6 +68,8 @@ public class IDEGoLite extends JFrame {
     private static final Color CONSOLE_FG = new Color(200, 255, 200);
     private static final Color CONSOLE_ERROR = new Color(255, 100, 100);
     private static final Color CONSOLE_INFO = new Color(100, 180, 255);
+    
+    private static final String AST_OUTPUT_DIR = "ast_output";
 
     /**
      * Creates new form IDEGoLite
@@ -167,6 +169,7 @@ public class IDEGoLite extends JFrame {
         this.addMenuItem(menuReportes, "Tabla de Tokens", null, e -> this.mostrarUltimoReporteTokens());
         this.addMenuItem(menuReportes, "Tabla de Errores", null, e -> this.mostrarUltimoReporteErrores());
         this.addMenuItem(menuReportes, "Tabla de Símbolos", null, e -> this.mostrarUltimoReporteSimbolos());
+        this.addMenuItem(menuReportes, "Arbol AST", null, e -> this.mostrarUltimoReporteAST());
 
         // --- Ayuda ---
         JMenu menuAyuda = new JMenu("Ayuda");
@@ -378,6 +381,7 @@ public class IDEGoLite extends JFrame {
     private List<Token> lastTokens = new ArrayList<>();
     private List<ErrorReport> lastErrors = new ArrayList<>();
     private List<Symbol> lastSymbols = new ArrayList<>();
+    private ProgramNode lastAST = null;
 
     private void ejecutar() {
         EditorTab tab = this.currentTab();
@@ -403,6 +407,7 @@ public class IDEGoLite extends JFrame {
             ProgramNode ast;
             try {
                 ast = (ProgramNode) p.parse().value;
+                this.lastAST = ast;
             } catch (Exception e) {
                 this.consolePrintError("[ERROR SINTÁCTICO] " + e.getMessage());
                 this.lastTokens = lexer.getTokenList();
@@ -509,6 +514,67 @@ public class IDEGoLite extends JFrame {
             return;
         }
         new ReportFrame(ReportType.SYMBOLS, this.lastSymbols).setVisible(true);
+    }
+
+    private void mostrarUltimoReporteAST() {
+        if (this.lastAST == null) {
+            JOptionPane.showMessageDialog(this,
+                    "No hay AST disponible. Ejecuta el código primero.",
+                    "Reporte de AST", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        try {
+            // 1. Generar el DOT
+            ASTGraphBuilder builder = new ASTGraphBuilder();
+            String dotContent = builder.build(this.lastAST);
+
+            // 2. Crear carpeta de salida fija en la raiz del proyecto
+            File outDir = new File(AST_OUTPUT_DIR);
+            if (!outDir.exists()) {
+                outDir.mkdirs();
+            }
+            File dotFile = new File(outDir, "ast.dot");
+            File pngFile = new File(outDir, "ast.svg");
+
+            java.nio.file.Files.writeString(dotFile.toPath(), dotContent);
+
+            // 3. Invocar graphviz
+            ProcessBuilder pb = new ProcessBuilder(
+                    "dot", "-Tsvg", dotFile.getAbsolutePath(), "-o", pngFile.getAbsolutePath()
+            );
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            int exitCode = proc.waitFor();
+
+            if (exitCode != 0) {
+                String errorOutput = new String(proc.getInputStream().readAllBytes());
+                JOptionPane.showMessageDialog(this,
+                        "Graphviz finalizó con errores (código " + exitCode + "):\n" + errorOutput,
+                        "Error al generar AST", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (!pngFile.exists()) {
+                JOptionPane.showMessageDialog(this,
+                        "Graphviz no generó la imagen esperada en " + pngFile.getAbsolutePath(),
+                        "Error al generar AST", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 4. Mostrar la imagen en la ventana de reporte
+            new ASTReportFrame(pngFile).setVisible(true);
+
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this,
+                    "No se pudo invocar Graphviz (¿está 'dot' en el PATH?):\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            JOptionPane.showMessageDialog(this,
+                    "La generación del AST fue interrumpida.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // --- Ayuda ---

@@ -18,6 +18,13 @@
             <artifactId>java-cup-runtime</artifactId>
             <version>11b</version>
         </dependency>
+        
+        <!-- Dependencia para renderizar SVG de forma fluida en Swing -->
+        <dependency>
+            <groupId>com.kitfox.svg</groupId>
+            <artifactId>svg-salamander</artifactId>
+            <version>1.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -52,6 +59,28 @@
                 </executions>
                 <configuration>
                     <packageName>com.mycompany.proyecto_compi1_vj26</packageName> 
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.mycompany.proyecto_compi1_vj26.Proyecto_compi1_vj26</mainClass>
+                        </manifest>
+                    </archive>
                 </configuration>
             </plugin>
         </plugins>
